@@ -20,7 +20,6 @@ import logging
 import datetime
 import yfinance as yf
 
-sys.stdout.reconfigure(encoding='utf-8')
 warnings.filterwarnings('ignore')
 logging.disable(logging.CRITICAL)
 

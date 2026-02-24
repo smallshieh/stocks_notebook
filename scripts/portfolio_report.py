@@ -12,7 +12,6 @@ import yfinance as yf
 import pandas as pd
 import datetime
 
-sys.stdout.reconfigure(encoding='utf-8')
 warnings.filterwarnings('ignore')   # 抑制 yfinance 的 404 警告訊息
 
 import logging

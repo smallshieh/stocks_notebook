@@ -5,14 +5,13 @@ vol_check.py — 個股成交量與波動分析
   python scripts/vol_check.py --ticker 2002 1503
   python scripts/vol_check.py --ticker 6488
 """
-import sys
 import argparse
 import warnings
 import logging
 import time
 import yfinance as yf
 
-sys.stdout.reconfigure(encoding='utf-8')
+
 
 warnings.filterwarnings('ignore')
 logging.disable(logging.CRITICAL)

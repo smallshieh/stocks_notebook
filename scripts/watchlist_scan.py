@@ -19,7 +19,6 @@ import datetime
 import yfinance as yf
 import pandas as pd
 
-sys.stdout.reconfigure(encoding='utf-8')
 import warnings, logging
 warnings.filterwarnings('ignore')
 logging.disable(logging.CRITICAL)
