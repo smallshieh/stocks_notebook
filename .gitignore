@@ -1,0 +1,14 @@
+# AI 工具目錄
+.agent/
+.brain/
+.claude/
+
+# 一次性輸出 / 暫存
+compare_result.txt
+scan_result.txt
+
+# 每日自動 log（量大且非必要追蹤）
+journals/logs/
+
+# 券商匯出的原始 CSV（含個人帳戶資料）
+證券未實現彙總*.csv
