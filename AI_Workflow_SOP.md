@@ -6,6 +6,47 @@
 
 ---
 
+## 📆 每日執行地圖
+
+### 交易日（週一～週五，收盤後）
+
+**步驟 1：更新持倉健診 + 追加淨值快照**
+
+```bash
+python scripts/portfolio_report.py --cash=現金餘額
+```
+
+> 執行後自動：產生 `持倉健診_YYYY-MM-DD.md`，並追加一筆到 `portfolio_history.csv`
+
+**步驟 2：盤後深度檢視**
+
+在 Claude Code 執行：
+```
+/daily-review
+```
+
+> 自動：讀健診報告 → 資金桶稽核 → 預警建議 → 建立盤後日誌
+
+### 非交易日（週六、週日、假日）
+
+**無需任何操作。**
+
+---
+
+### 特殊情況
+
+| 情況 | 動作 |
+|------|------|
+| **存入新現金**（無健診） | 手動在 `portfolio_history.csv` 加一行，填入 `cash_inflow` 金額 |
+| **存入當天剛好有健診** | `python scripts/portfolio_report.py --cash=新餘額 --inflow=存入金額 --notes=備註` |
+| **買進新標的** | `/new-position` → 建立 trades 筆記，**進場當下填寫審計 ① ②** |
+| **賣出** | 填寫 trades 筆記審計 ③（結果分，出場當下填） |
+| **出場後一週** | 填寫 trades 筆記審計 ④（學習分，情緒沉澱後填） |
+| **每隔 10 天** | `/new-tactical` → 建立新一期戰術指南 |
+| **每月底** | `python scripts/performance_report.py` → 查 TWR / MWR / Alpha |
+
+---
+
 ## 📅 情境一：每日盤後深度檢視
 
 **觸發時機**：自動掃描有預警標的，或想撰寫盤後日誌時。
