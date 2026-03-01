@@ -12,3 +12,6 @@ journals/logs/
 
 # 券商匯出的原始 CSV（含個人帳戶資料）
 證券未實現彙總*.csv
+
+# Notion API 憑證（請勿 commit）
+scripts/notion_creds.py

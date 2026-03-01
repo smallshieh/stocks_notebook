@@ -1,68 +1,88 @@
-# 📈 台股投資筆記與 AI 協作手冊 (User Manual)
+# 📈 股票筆記本 — 操作速查表
 
-這份文件是本「股票筆記本」系統的操作與溝通規範。為了讓投資決策效率最佳化並嚴守紀律，請詳細閱讀以下目錄結構、自動化工具與 AI 協作方式。
-
----
-
-## 1. 核心紀律規範 (Core Rules)
-本筆記本嚴格遵循 `.brain/rules.md` 中的約定：
-*   **量化為主，感性為輔**：優先檢查殖利率與法人買賣超。
-*   **嚴格執行停損**：帳面虧損達 `-10%` 或股價跌破 **月線 (20MA)**，必須強制記錄並標示「預警」。
-*   **結構化交易紀錄**：每筆交易均須記錄「原因」、「風險」與「預期目標」。
+> 忘了怎麼用？從這裡找答案。詳細 SOP 見 `AI_Workflow_SOP.md`。
 
 ---
 
-## 2. 目錄結構與範本 (Directory Structure & Templates)
+## ⚡ 每日例行（14:35 已自動執行，不用管）
 
-筆記本設計為三個主要的寫作區域，並配有專屬範本：
+| 腳本自動做的事 | 產生的檔案 |
+|--------------|-----------|
+| 所有持倉健診（現價 / 月線 / 損益 / 三桶佔比）| `持倉健診_YYYY-MM-DD.md` |
+| 淨值快照寫入歷史 | `portfolio_history.csv` |
+| Watchlist 觸發訊號掃描 | `journals/logs/YYYY-MM-DD_scan.log` |
 
-*   📁 **`/trades/` (交易對帳單)**
-    *   **用途**：記錄每一檔交易中的標的。一個標的一個 Markdown 檔（例如 `2357_Asus.md`）。
-    *   **範本**：`trades/template.md` (包含買進價格、原因分析、停損追蹤檢核表等欄位)。
-*   📁 **`/journals/` (盤後日記)**
-    *   **用途**：每日收盤後的市場觀察、大盤情緒與持股總掃描檢討。
-    *   **範本**：`journals/template.md`。
-*   📁 **`/strategies/` (投資策略)**
-    *   **用途**：記錄目前正在測試或使用的投資策略進出場邏輯。
-    *   **範本**：`strategies/template.md`。
+**每天只需要做一件事**：打開 `持倉健診_YYYY-MM-DD.md` 看一眼有無 ⚠️ 預警。
 
 ---
 
-## 3. 自動化輔助腳本 (Automation Scripts)
+## 🤖 AI 協作 Slash 指令
 
-我們在 `/scripts/` 中開發了 Python 工具來減少人工查表的時間。請在終端機或請 AI 代勞執行：
-
-*   **自動掃描所有持股停損點 (每日盤後必做)**
-    這會自動讀取 `/trades/` 下的所有檔案，抓出「買進價格」，並即時比對現價是否觸發 `-10%` 或破月線。
-    ```bash
-    python scripts/stock_analyzer.py --scan-trades
-    ```
-*   **查詢單一個股即時月線與殖利率 (買進前評估)**
-    ```bash
-    python scripts/stock_analyzer.py --ticker [代號，如 00919]
-    ```
+| 指令 | 使用時機 |
+|------|---------|
+| `/daily-review` | 有預警標的、想寫盤後日誌時 |
+| `/fill-trades` | 新建持倉後，基本資訊欄位空白時 |
+| `/new-position {代號}` | 想買新標的，進場前做完整分析 |
 
 ---
 
-## 4. AI 溝通與操作規範 (AI Prompting SOP)
+## 🛠️ 手動執行腳本（需要時才跑）
 
-為了讓我（Antigravity AI 架構師）能最精準地幫你處理雜務，請使用以下指定的對話結構與我溝通：
+```bash
+# 手動觸發持倉健診
+python scripts/portfolio_report.py
 
-### 情境 A：盤後總結 (Daily Review)
-每天台股收盤後，當你需要寫 `/journals` 時。
-*   **請這樣說：** 
-    > 「請幫我建立今天的 `/journals` 盤後筆記，並執行 `stock_analyzer.py --scan-trades`，總結所有 `/trades` 中已經觸發 `-10%` 或 `跌破月線` 的預警標的。並簡短分享你對今天大盤籌碼的看法。」
+# 手動觸發淨值快照
+python scripts/portfolio_log.py
 
-### 情境 B：進場前的標的分析 (Pre-Trade Analysis)
-當你想買一檔股票，需要客觀數據支持時。
-*   **請這樣說：**
-    > 「我想分析 [股票代號]，請幫我執行腳本看即時殖利率與月線位置，然後分析近期的籌碼集中度。如果適合進場，請直接幫我在 `/trades` 建立一份對帳單草稿，並列出停損參考價。」
+# 手動觸發 Watchlist 掃描
+python scripts/watchlist_scan.py
 
-### 情境 C：建立新策略 (Strategy Creation)
-當你有新的靈感或想法想記錄下來驗證時。
-*   **請這樣說：**
-    > 「我想建立一個名為『[策略名稱]』的新策略，核心邏輯是 [你的條件]。請幫我使用 `/strategies` 的範本把它記錄下來。」
+# 查單一股票現價 / 月線 / 殖利率
+python scripts/stock_analyzer.py --ticker 2330
+
+# 查多檔成交量（評估流動性）
+python scripts/vol_check.py --ticker 2002 6488
+```
 
 ---
 
-**⚠️ 維護建議**：如果未來有新的交易習慣或停損放寬規定，請優先更新 `.brain/rules.md` 以及此 `readme.md` 檔案，以確保整個系統與 AI 的判斷邏輯能保持同步。
+## 📁 目錄地圖
+
+| 目錄 / 檔案 | 用途 |
+|------------|------|
+| `trades/` | 每筆持倉的策略與停損記錄 |
+| `trades/template.md` | 新倉建檔範本 |
+| `watchlist/` | 候補股追蹤（量化觸發條件） |
+| `journals/` | 盤後日誌 |
+| `journals/logs/` | 腳本每日執行 log |
+| `strategies/` | 交易策略文件 |
+| `capital/capital_config.md` | 三桶資金快照（需定期手動更新） |
+| `.brain/rules.md` | AI 行為準則（停損規則 / 分析風格） |
+| `.brain/capital_management_rules.md` | 三桶定義 / 風險計算公式 / AI 執行指令 |
+| `portfolio_history.csv` | 每日淨值歷史記錄 |
+| `持倉健診_YYYY-MM-DD.md` | 每日持倉看板（最常開的檔案） |
+
+---
+
+## 💼 資金桶快速回憶
+
+| 桶別 | 目標佔比 | 上限 | 內容 |
+|------|---------|------|------|
+| Core（底倉水庫）| 50% | — | ETF、高殖利率存股 |
+| Tactical（戰術水管）| 30% | **35%** | 波段操作、零股滾動 |
+| Cash（銀彈消防栓）| 20% | 下限 10% | 恐慌備用金 |
+
+> 詳細規則見 `.brain/capital_management_rules.md`
+
+---
+
+## 📋 什麼時候要更新哪個檔案
+
+| 情境 | 要更新的檔案 |
+|------|------------|
+| 買進 / 賣出 | `trades/{代號}.md` — 記錄操作與損益 |
+| 看法改變 / 停損線修正 | `trades/{代號}.md` — 更新策略區塊 |
+| 月底資金盤點 | `capital/capital_config.md` — 更新 Section 0 快照 |
+| 投資邏輯出現新規則 | `.brain/rules.md` |
+| 三桶比例或風險公式要調整 | `.brain/capital_management_rules.md` |
