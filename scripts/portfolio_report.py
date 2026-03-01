@@ -155,7 +155,48 @@ def scan():
     if tactical_pct > 35:
         bucket_section = "\n> ⚠️ **資金越權警告**：Tactical 佔比超過 35% 上限！\n" + bucket_section
 
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    # ── 追加今日數據到 portfolio_history.csv ─────────────────────────────────
+    history_path = os.path.join(TRADES_DIR, '..', 'portfolio_history.csv')
+    cash_arg = None
+    for arg in sys.argv[1:]:
+        if arg.startswith('--cash='):
+            try:
+                cash_arg = float(arg.split('=', 1)[1].replace(',', ''))
+            except ValueError:
+                pass
+    cash_inflow_arg = 0.0
+    for arg in sys.argv[1:]:
+        if arg.startswith('--inflow='):
+            try:
+                cash_inflow_arg = float(arg.split('=', 1)[1].replace(',', ''))
+            except ValueError:
+                pass
+    notes_arg = ''
+    for arg in sys.argv[1:]:
+        if arg.startswith('--notes='):
+            notes_arg = arg.split('=', 1)[1]
+
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    if os.path.exists(history_path):
+        with open(history_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        already_today = any(l.startswith(today_str + ',') for l in lines)
+    else:
+        lines = ['date,total_stock_value,cash_balance,total_portfolio_value,cash_inflow,notes\n']
+        already_today = False
+
+    if not already_today:
+        cash_bal  = cash_arg if cash_arg is not None else ''
+        total_pv  = (total_invested + cash_arg) if cash_arg is not None else ''
+        new_row   = f"{today_str},{total_invested:.0f},{cash_bal},{total_pv},{cash_inflow_arg},{notes_arg}\n"
+        with open(history_path, 'a', encoding='utf-8') as f:
+            f.write(new_row)
+        cash_note = f"（現金 {cash_arg:,.0f} 元）" if cash_arg is not None else "（現金未提供，請加 --cash=金額）"
+        print(f"[history] 已追加 {today_str}：股票市值 {total_invested:,.0f}{cash_note}")
+    else:
+        print(f"[history] {today_str} 已存在，略過追加")
+
+    today = today_str
     header = (
         f"# 📊 持倉健診報告 ({today})\n\n"
         "## ⚠️ 需要注意的標的\n"

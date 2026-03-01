@@ -1,2 +1,2 @@
-date,total_value,total_cost,total_pnl,total_pnl_pct
-2026-02-24,2762757,2739442,23315,0.8511
+date,total_stock_value,cash_balance,total_portfolio_value,cash_inflow,notes
+2026-02-24,2762757,222498,2985255,2985255,系統建立基準日（含現金）
