@@ -41,6 +41,12 @@ python scripts/watchlist_scan.py
 # 查單一股票現價 / 月線 / 殖利率
 python scripts/stock_analyzer.py --ticker 2330
 
+# 量化分析：GBM 幾何布朗運動機率預測
+# 臺股範例 (需後綴)
+python scripts/gbm_analysis.py --code 2330
+# 美股範例 (不加後綴，但需在 stocks.csv 註冊)
+python scripts/gbm_analysis.py --code DTIL --days 20,60,252
+
 # 查多檔成交量（評估流動性）
 python scripts/vol_check.py --ticker 2002 6488
 ```

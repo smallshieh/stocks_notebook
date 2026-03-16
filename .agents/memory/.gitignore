@@ -1,0 +1,4 @@
+# Episode logs are working files — personal, temporary, gitignored
+episodes/
+
+# knowledge/ is NOT listed here → git tracked (distilled, shareable)

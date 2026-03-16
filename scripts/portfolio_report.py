@@ -8,6 +8,21 @@ import re
 import sys
 import time
 import warnings
+# === SSL 修復 ===
+# yfinance 1.2.0 起改用 curl_cffi，不接受 requests.Session。
+# 若 certifi 路徑含中文，curl_cffi 會找不到 CA 檔，改指向 ASCII 備份路徑。
+_FALLBACK_CERT = r"C:\Users\smallshieh\cacert.pem"
+try:
+    import certifi as _certifi
+    _cert_path = _certifi.where()
+    if not all(ord(c) < 128 for c in _cert_path) and os.path.exists(_FALLBACK_CERT):
+        _cert_path = _FALLBACK_CERT
+    os.environ["CURL_CA_BUNDLE"] = _cert_path
+    os.environ.setdefault("SSL_CERT_FILE", _cert_path)
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", _cert_path)
+except ImportError:
+    pass
+
 import yfinance as yf
 import pandas as pd
 import datetime
@@ -27,7 +42,7 @@ CORE_CODES = {
 }
 TACTICAL_CODES = {
     '1503', '2002', '2317', '2330', '2357', '2376', '2377',
-    '3034', '3231', '4938', '5483', '6488',
+    '2379', '2382', '3034', '3231', '4938', '5483', '6488',
 }
 
 def get_bucket(code: str) -> str:
@@ -158,10 +173,16 @@ def scan():
     # ── 追加今日數據到 portfolio_history.csv ─────────────────────────────────
     history_path = os.path.join(TRADES_DIR, '..', 'portfolio_history.csv')
     cash_arg = None
+    cash_delta_arg = None
     for arg in sys.argv[1:]:
         if arg.startswith('--cash='):
             try:
                 cash_arg = float(arg.split('=', 1)[1].replace(',', ''))
+            except ValueError:
+                pass
+        if arg.startswith('--cash-delta='):
+            try:
+                cash_delta_arg = float(arg.split('=', 1)[1].replace(',', ''))
             except ValueError:
                 pass
     cash_inflow_arg = 0.0
@@ -177,24 +198,49 @@ def scan():
             notes_arg = arg.split('=', 1)[1]
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
+    for arg in sys.argv[1:]:
+        if arg.startswith('--date='):
+            today_str = arg.split('=', 1)[1]
+
     if os.path.exists(history_path):
         with open(history_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
-        already_today = any(l.startswith(today_str + ',') for l in lines)
+        # 移除今日舊紀錄（若存在），保留其 cash_balance 作為預設值
+        prev_cash = None
+        new_lines = []
+        for l in lines:
+            if l.startswith(today_str + ','):
+                parts = l.strip().split(',')
+                if len(parts) >= 3 and parts[2]:
+                    try:
+                        prev_cash = float(parts[2])
+                    except ValueError:
+                        pass
+            else:
+                new_lines.append(l)
+        lines = new_lines
     else:
         lines = ['date,total_stock_value,cash_balance,total_portfolio_value,cash_inflow,notes\n']
-        already_today = False
+        prev_cash = None
 
-    if not already_today:
-        cash_bal  = cash_arg if cash_arg is not None else ''
-        total_pv  = (total_invested + cash_arg) if cash_arg is not None else ''
-        new_row   = f"{today_str},{total_invested:.0f},{cash_bal},{total_pv},{cash_inflow_arg},{notes_arg}\n"
-        with open(history_path, 'a', encoding='utf-8') as f:
-            f.write(new_row)
-        cash_note = f"（現金 {cash_arg:,.0f} 元）" if cash_arg is not None else "（現金未提供，請加 --cash=金額）"
-        print(f"[history] 已追加 {today_str}：股票市值 {total_invested:,.0f}{cash_note}")
+    # cash 優先順序：--cash-delta（加減前次值）> --cash（直接覆寫）> 今日舊紀錄 > 空白
+    if cash_delta_arg is not None:
+        base = prev_cash if prev_cash is not None else 0.0
+        cash_bal = base + cash_delta_arg
+    elif cash_arg is not None:
+        cash_bal = cash_arg
+    elif prev_cash is not None:
+        cash_bal = prev_cash
     else:
-        print(f"[history] {today_str} 已存在，略過追加")
+        cash_bal = ''
+
+    total_pv = (total_invested + cash_bal) if cash_bal != '' else ''
+    new_row  = f"{today_str},{total_invested:.0f},{cash_bal},{total_pv},{cash_inflow_arg},{notes_arg}\n"
+    lines.append(new_row)
+    with open(history_path, 'w', encoding='utf-8') as f:
+        f.writelines(lines)
+    cash_note = f"（現金 {cash_bal:,.0f} 元）" if cash_bal != '' else "（現金未提供，請加 --cash=金額）"
+    print(f"[history] 已更新 {today_str}：股票市值 {total_invested:,.0f}{cash_note}")
 
     today = today_str
     header = (
