@@ -23,6 +23,7 @@ import sys
 import os
 import re
 import glob
+import json
 import argparse
 from datetime import date
 
@@ -37,6 +38,7 @@ BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRADES_DIR   = os.path.join(BASE_DIR, 'trades')
 JOURNALS_DIR = os.path.join(BASE_DIR, 'journals')
 TACTICAL_MD  = os.path.join(JOURNALS_DIR, '戰術指南.md')
+LOGS_DIR     = os.path.join(JOURNALS_DIR, 'logs')
 
 # 區塊標記（用於在戰術指南末尾找到並覆寫）
 WAVE_SECTION_MARKER = '## 📊 Wave Score 日更新'
@@ -303,13 +305,71 @@ def make_wave_row(r, today_str):
 
 
 def already_recorded_today(content, today_str):
+    """只在 Wave Score 歷史紀錄表格段落中檢查今日是否已記錄，
+    避免 減持執行紀錄 等其他表格的日期欄干擾判斷。"""
+    in_wave_table = False
     for line in content.splitlines():
-        if (line.strip().startswith('|')
-                and today_str in line
-                and '| 日期 |' not in line
-                and '---' not in line):
-            return True
+        if '| 日期 |' in line and '總分' in line:
+            in_wave_table = True
+            continue
+        if in_wave_table:
+            if line.strip().startswith('|') and '---' not in line:
+                if today_str in line:
+                    return True
+            elif not line.strip().startswith('|'):
+                in_wave_table = False
     return False
+
+
+# ── Wave Score cache（盤後結果固定，避免重複抓資料）────────────────────────────
+
+def _cache_path(today_str):
+    return os.path.join(LOGS_DIR, f'{today_str}_wave_scores.json')
+
+
+def load_wave_cache(today_str):
+    path = _cache_path(today_str)
+    if not os.path.exists(path):
+        return None
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
+def save_wave_cache(today_str, raw_results):
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    cache = {}
+    for r in raw_results:
+        if r is None:
+            continue
+        code = r['code']
+        cache[code] = {
+            'current':  float(r['current']),
+            'as_of':    str(r['as_of']),
+            'ma20':     float(r['ma20']),
+            'mu':       float(r['mu']),
+            'sigma':    float(r['sigma']),
+            'ma_s':     int(r['ma_s']),
+            'ma_raw':   int(r['ma_raw']),
+            'gbm_s':    int(r['gbm_s']),
+            'q_s':      int(r['q_s']),
+            'phys_s':   int(r['phys_s']),
+            'total':    int(r['total']),
+            'sell_low': float(r['sell_low']),
+            'buy_high': float(r['buy_high']),
+            'buy_low':  float(r['buy_low']),
+            'q_data':   {k: (float(v) if isinstance(v, (int, float, np.integer, np.floating)) else str(v))
+                         for k, v in r['q_data'].items()},
+        }
+    with open(_cache_path(today_str), 'w', encoding='utf-8') as f:
+        json.dump(cache, f, ensure_ascii=False, indent=2)
+
+
+def restore_from_cache(code, cache):
+    from datetime import date as _date
+    c = dict(cache[code])
+    c['as_of'] = _date.fromisoformat(c['as_of'])
+    c['mom']   = 0.0  # 物理引擎動量，僅 display 用，cache 不儲存
+    return c
 
 
 def update_trades_md(content, r, new_row, today_str, dy_str=None):
@@ -488,17 +548,27 @@ def main():
         print('  ⚠️  Dry-run 模式，不寫入任何檔案')
     print(f'{"=" * 60}')
 
-    results, action_items, failed = [], [], []
+    cache      = load_wave_cache(today_str)
+    from_cache = cache is not None
+    if from_cache:
+        print(f'  📦 載入快取 {_cache_path(today_str)}（跳過 yfinance 抓取）')
+
+    results, action_items, failed, raw_results = [], [], [], []
 
     for code, fpath, name in stocks:
         ticker = ticker_map.get(code, f'{code}.TW')
         print(f'\n  [{code} {name}]', end='  ', flush=True)
 
-        r = analyze(code, ticker, args.period)
+        if from_cache and code in cache:
+            r = restore_from_cache(code, cache)
+            print('(快取)', end='  ', flush=True)
+        else:
+            r = analyze(code, ticker, args.period)
         if r is None:
             print('❌ 資料取得失敗')
             failed.append(f'{code} {name}')
             continue
+        raw_results.append(r)
 
         with open(fpath, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -521,6 +591,11 @@ def main():
             if new_content != content:
                 with open(fpath, 'w', encoding='utf-8') as f:
                     f.write(new_content)
+
+    # ── 儲存 cache（盤後固定，僅在非 dry-run 且非從 cache 讀入時儲存）──────────
+    if not args.dry_run and not from_cache and raw_results:
+        save_wave_cache(today_str, raw_results)
+        print(f'\n  💾 Wave Score 已快取至 {_cache_path(today_str)}')
 
     # ── 行動清單輸出（console）────────────────────────────────────────────────
     print(f'\n{"=" * 60}')

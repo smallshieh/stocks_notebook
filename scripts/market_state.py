@@ -175,6 +175,9 @@ def classify_regime(d: dict) -> str:
     # 若量比資料異常（< 0.01，盤中未結算或資料缺失），忽略量能條件，純用均線判斷
     vol_valid = vol >= 0.01
     if score >= 4 and (not vol_valid or vol >= 0.8):
+        # 降級條件：現價跌破月線 → 上升趨勢中的短期修正，降為多頭震盪
+        if d['price'] < d['ma20']:
+            return 'bull_weak'
         return 'bull_strong'
 
     # 多頭震盪：均線 3-4 多頭但量縮或不穩

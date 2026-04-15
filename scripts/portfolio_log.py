@@ -19,9 +19,12 @@ import warnings
 import logging
 import datetime
 import yfinance as yf
+from curl_cffi import requests as creq
 
 warnings.filterwarnings('ignore')
 logging.disable(logging.CRITICAL)
+
+_SESSION = creq.Session(verify=False, impersonate='chrome')
 
 TRADES_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'trades')
 HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'portfolio_history.csv')
@@ -36,7 +39,7 @@ def _fetch_hist(code, period="5d", retries=3, delay=5):
     for suffix in ['.TW', '.TWO']:
         for attempt in range(retries):
             try:
-                h = yf.Ticker(f"{code}{suffix}").history(period=period, auto_adjust=False)
+                h = yf.Ticker(f"{code}{suffix}", session=_SESSION).history(period=period, auto_adjust=False)
                 if h is not None and not h.empty:
                     return h
             except Exception:
@@ -102,24 +105,36 @@ def append_record(record: dict):
         writer.writerow(record)
 
 
+def _row_val(row: dict) -> float:
+    """相容新舊 CSV 格式，回傳市值欄位數值。"""
+    for k in ('total_value', 'total_portfolio_value', 'total_stock_value'):
+        if k in row and row[k]:
+            return float(row[k])
+    return 0.0
+
+
 def print_trend(history: list[dict], new_record: dict):
     recent = (history + [new_record])[-10:]   # 最近 10 筆
-    print(f"\n{'日期':<12} {'總市值':>12} {'總成本':>12} {'損益':>10} {'損益%':>8}")
-    print("-" * 58)
+    print(f"\n{'日期':<12} {'總市值':>14} {'損益':>10} {'損益%':>8}")
+    print("-" * 50)
     for i, row in enumerate(recent):
-        val  = int(float(row['total_value']))
-        cost = int(float(row['total_cost']))
-        pnl  = int(float(row['total_pnl']))
-        pct  = float(row['total_pnl_pct'])
+        val    = int(_row_val(row))
         marker = " ← 今日" if i == len(recent) - 1 else ""
-        print(f"{row['date']:<12} {val:>12,} {cost:>12,} {pnl:>+10,}  {pct:>+6.2f}%{marker}")
+        # 新格式才有 total_pnl / total_pnl_pct
+        if 'total_pnl' in row and row['total_pnl']:
+            pnl = int(float(row['total_pnl']))
+            pct = float(row['total_pnl_pct'])
+            print(f"{row['date']:<12} {val:>14,} {pnl:>+10,}  {pct:>+6.2f}%{marker}")
+        else:
+            print(f"{row['date']:<12} {val:>14,}{'':>10}{'':>8}{marker}")
 
     # 若有 2 筆以上，顯示與上次的變化
     if len(recent) >= 2:
-        prev_val = float(recent[-2]['total_value'])
-        curr_val = float(recent[-1]['total_value'])
+        prev_val = _row_val(recent[-2])
+        curr_val = _row_val(recent[-1])
         delta    = curr_val - prev_val
-        print(f"\n  vs 上次：{delta:+,.0f} 元  ({delta/prev_val*100:+.2f}%)")
+        if prev_val:
+            print(f"\n  vs 上次：{delta:+,.0f} 元  ({delta/prev_val*100:+.2f}%)")
 
 
 def run():

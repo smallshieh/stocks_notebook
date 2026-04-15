@@ -163,9 +163,24 @@ with col_left:
 with col_right:
     st.subheader('資金桶分配')
     if buckets:
+        # 補入 Cash（從 portfolio_history.csv 讀取，健診 MD 無數字）
+        if not hist.empty:
+            cash_from_csv = hist.iloc[-1].get('cash_balance', 0) or 0
+            if cash_from_csv > 0:
+                total_invested = sum(b['value'] for b in buckets.values())
+                total_with_cash = total_invested + cash_from_csv
+                buckets['Cash'] = {
+                    'value': cash_from_csv,
+                    'pct': cash_from_csv / total_with_cash * 100,
+                }
+                # 重新計算 Core / Tactical 佔比（分母含現金）
+                for k in ('Core', 'Tactical'):
+                    if k in buckets:
+                        buckets[k]['pct'] = buckets[k]['value'] / total_with_cash * 100
+
         labels = list(buckets.keys())
         values = [buckets[k]['value'] for k in labels]
-        colors = ['#2196F3', '#FF9800']
+        colors = ['#2196F3', '#FF9800', '#4CAF50']  # Core/Tactical/Cash
         fig_pie = px.pie(
             names=labels, values=values,
             color_discrete_sequence=colors,
@@ -182,8 +197,9 @@ with col_right:
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
+        targets = {'Core': 50, 'Tactical': 30, 'Cash': 20}
         for k, v in buckets.items():
-            target = 50 if k == 'Core' else 30
+            target = targets.get(k, 20)
             diff = v['pct'] - target
             icon = '✅' if abs(diff) < 10 else '⚠️'
             st.caption(f"{icon} {k}：{v['pct']:.1f}%（目標 {target}%，{diff:+.1f}%）")
