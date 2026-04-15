@@ -23,3 +23,4 @@
 - 不自行猜測數字（股數、均價、資金）— 從 MD 檔讀取或詢問用戶
 - 收到新聞/財經資訊 → 依 [.claude/docs/news-routing.md](.claude/docs/news-routing.md) 路由，勿自行決定寫入位置
 - 評估減持配息股前 → 先跑 [.claude/docs/divest-checklist.md](.claude/docs/divest-checklist.md) 三行計算
+- 標的完全出場後 → 依 [strategies/trade_lessons.md](strategies/trade_lessons.md) 開頭 SOP 萃取 lesson 並刪除 trades 檔，不保留歸檔資料夾
