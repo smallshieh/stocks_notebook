@@ -42,11 +42,23 @@ description: 建立 5 日戰術指南（備份舊檔 → 讀資料 → 識別觸
 1. **`持倉健診_{TODAY}.md`** — 取得所有持倉的現價、20MA、月線位置、損益%、殖利率
 2. **`capital/capital_config.md`** — 取得三桶現況佔比、Cash_Bucket 餘額、桶別歸屬表
 3. **`.brain/capital_management_rules.md`** — 載入桶別定義、Tactical 佔比上限（35%）、風險計算公式
-4. **`trades/*.md`（全部）** — 從每個標的筆記中提取：
-   - 停損價 / 停利價 / 賣出觸發點 / 買入觸發點
-   - 操作倉 vs 底倉股數
-   - 待執行策略（DCA 扣款日、零股滾動條件、波段賣出條件等）
-   - 進場批次計畫（若有分批建倉）
+4. **`trades/*.md`（全部）** — 必須先用 Markdown 結構化工具縮小讀取範圍，不要直接讀完整檔案。
+   - 先列出每個檔案的標題與行號：
+     ```powershell
+     .\.venv\Scripts\python.exe scripts\md_outline.py trades\{檔名}.md
+     ```
+   - 依 outline 只讀需要的區塊，優先讀：
+     `基本資訊`、`倉位規劃`、`操作策略`、`停損預警區`、`減持條件`、`減持計畫`、`零股滾動操作紀錄`、`零股滾動法`、`買賣執行紀錄`、`交易紀錄`
+     ```powershell
+     .\.venv\Scripts\python.exe scripts\md_section.py trades\{檔名}.md --section "基本資訊" --section "倉位規劃" --section "停損預警區"
+     ```
+   - 從上述區塊提取：
+     - 停損價 / 停利價 / 賣出觸發點 / 買入觸發點
+     - 操作倉 vs 底倉股數
+     - 待執行策略（DCA 扣款日、零股滾動條件、波段賣出條件等）
+     - 進場批次計畫（若有分批建倉）
+   - 只有在 outline 缺失、標題歧義、格式損壞，或必要資訊跨多區塊無法定位時，才讀完整 MD。
+   - 工具完整說明見 `scripts/MD_TOOLS_FOR_AGENTS.md`。
 
 ---
 

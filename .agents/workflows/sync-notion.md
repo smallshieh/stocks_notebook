@@ -113,6 +113,8 @@ git -C "S:/股票筆記" status --short
 ## 注意事項
 
 - 同步為**單向覆寫**：Notion 端舊內容會被清除，以 MD 檔為準
+- Notion 同步內容必須使用完整 MD；不要用 `md_section.py` 或局部 section 內容作為同步 payload
+- `md_outline.py` 僅可用於同步前檢查檔案結構或除錯，不可取代完整檔案同步
 - 同步指令固定使用 `.venv/Scripts/python.exe`，不使用系統 python
 - Notion 頁面標題由 MD 檔名推斷（第一個底線替換為空格）：
   - `戰術指南.md` → 「戰術指南」

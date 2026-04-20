@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(S:/股票筆記/.venv/Scripts/python.exe S:/股票筆記/scripts/stock_analyzer.py --help)",
+      "Bash(S:/股票筆記/.venv/Scripts/python.exe S:/股票筆記/scripts/stock_analyzer.py --ticker 2317 --cost 204.16 --physics --quantile)"
+    ],
+    "additionalDirectories": [
+      "s:\\股票筆記\\watchlist"
+    ]
+  }
+}

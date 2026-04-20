@@ -1,0 +1,17 @@
+{
+  "regime-6488": {
+    "last_run": "2026-04-17",
+    "run_count": 1,
+    "last_output": "θ=462, 430守住率=88%/23日, 回測低點=505(-6.5%)"
+  },
+  "thesis-expiry": {
+    "last_run": "2026-04-17",
+    "run_count": 1,
+    "last_output": "無到期項目"
+  },
+  "regime-8069": {
+    "last_run": "2026-04-17",
+    "run_count": 1,
+    "last_output": "θ=161, 140守住率=98%/48日, 回測低點=136(-24.8%)"
+  }
+}

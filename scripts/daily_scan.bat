@@ -30,8 +30,12 @@ echo [3/4] 執行 Watchlist 掃描... >> "%LOGFILE%"
 "%PYTHON%" "%PROJECT%\scripts\watchlist_scan.py" >> "%LOGFILE%" 2>&1
 
 echo. >> "%LOGFILE%"
-echo [4/4] Wave Score 掃描（成長趨勢股）... >> "%LOGFILE%"
+echo [4/5] Wave Score 掃描（成長趨勢股）... >> "%LOGFILE%"
 "%PYTHON%" "%PROJECT%\scripts\wave_score_scan.py" >> "%LOGFILE%" 2>&1
+
+echo. >> "%LOGFILE%"
+echo [5/5] 事件偵測（Layer 3 訊號）... >> "%LOGFILE%"
+"%PYTHON%" "%PROJECT%\scripts\event_detector.py" >> "%LOGFILE%" 2>&1
 
 echo. >> "%LOGFILE%"
 echo 完成。 >> "%LOGFILE%"

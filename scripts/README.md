@@ -19,9 +19,15 @@
 | `portfolio_log.py` | 紀錄工具 | 資金 / 持倉快照存檔 |
 | `performance_report.py` | 報告工具 | 績效報告（含計算資金輪轉效益）|
 | `sync_to_notion.py` | 同步工具 | 將 MD 檔同步至 Notion |
+| `update_trade_prices.py` | MD 更新 | 從持倉健診刷新 trades/ 的目前價格、20MA、殖利率 |
 | `watchlist_scan.py` | 監控工具 | 觀察清單標的掃描與警示 |
 | `update_stocks.py` | 資料維護 | 新增 / 查詢 stocks.csv 標的清單 |
 | `vol_check.py` | 工具 | 個股波動率快速查詢 |
+| `md_outline.py` | MD 工具 | 列出 Markdown 標題結構與行號 |
+| `md_section.py` | MD 工具 | 只讀指定 Markdown 區塊 |
+| `md_update_section.py` | MD 工具 | 安全替換指定 Markdown 區塊 |
+| `regime_tracker.py` | ��控工具 | 價格區間遷移追蹤（OU θ、支撐守住率、回測深度）|
+| `thesis_expiry.py` | 監控工具 | 前瞻觀點與催化劑到期提醒 |
 | `daily_scan.bat` | 排程 | 每日自動執行盤後掃描 |
 
 ---
@@ -152,6 +158,35 @@
 
 ---
 
+## 七、持倉筆記價格刷新
+
+### `update_trade_prices.py` — 從持倉健診更新 trades 市場欄位
+
+> 與 `/fill-trades` 不同：`fill-trades` 只補空白；本工具會刷新既有市場欄位。  
+> 只更新 `目前價格`、`月線 (20MA) 位置`、`預估殖利率 / 現價殖利率 / 殖利率`。
+
+```powershell
+# 預覽所有會更新的欄位（不寫入）
+.venv\Scripts\python.exe scripts/update_trade_prices.py
+
+# 確認 dry-run 無誤後寫入
+.venv\Scripts\python.exe scripts/update_trade_prices.py --write
+
+# 只更新單一代號
+.venv\Scripts\python.exe scripts/update_trade_prices.py --code 1210
+.venv\Scripts\python.exe scripts/update_trade_prices.py --code 1210 --write
+
+# 指定健診報告
+.venv\Scripts\python.exe scripts/update_trade_prices.py --report 持倉健診_2026-04-16.md --write
+```
+
+**安全邊界**：
+- 只改 `## 基本資訊` 區塊；舊格式檔案只改檔案開頭 metadata 區。
+- 不改買進均價、集保股數、總成本、交易紀錄、停損預警、策略規劃。
+- 預設 dry-run；必須加 `--write` 才會寫檔。
+
+---
+
 ## 八、Notion 同步
 
 ### `sync_to_notion.py` — 同步 MD 至 Notion
@@ -194,7 +229,110 @@
 
 ---
 
-## 十、規劃中但尚未實作的量化方法
+## 十、Markdown 結構化讀寫
+
+> Agent 讀 `trades/`、`watchlist/`、`journals/` 長篇 MD 時，先用 outline 找區塊，再用 section 讀必要內容，避免整檔讀取。
+> 詳細規則見：`scripts/MD_TOOLS_FOR_AGENTS.md`
+
+### `md_outline.py` — 列出標題與行號
+
+```powershell
+.venv\Scripts\python.exe scripts/md_outline.py trades/00919_群益台灣精選高息.md
+.venv\Scripts\python.exe scripts/md_outline.py trades/00919_群益台灣精選高息.md --json
+```
+
+### `md_section.py` — 讀指定區塊
+
+```powershell
+.venv\Scripts\python.exe scripts/md_section.py trades/00919_群益台灣精選高息.md "基本資訊"
+.venv\Scripts\python.exe scripts/md_section.py trades/00919_群益台灣精選高息.md --section "基本資訊" --section "交易紀錄"
+```
+
+### `md_update_section.py` — 替換指定區塊
+
+```powershell
+# 先 dry-run
+.venv\Scripts\python.exe scripts/md_update_section.py trades/00919_群益台灣精選高息.md "停損預警區" --from tmp_section.md --dry-run
+
+# 確認後寫入
+.venv\Scripts\python.exe scripts/md_update_section.py trades/00919_群益台灣精選高息.md "停損預警區" --from tmp_section.md
+```
+
+---
+
+## 十一、價格區間遷移追蹤
+
+### `regime_tracker.py` — 結構性區間變化監控
+
+> 用於判斷個股的價格中樞是否發生永久性遷移（而非暫時波動）。
+> 通常由 daily-review hook 自動觸發（每 10 個交易日），也可手動執行。
+
+```powershell
+# 完整報告（含判定門檻評估）
+.venv\Scripts\python.exe scripts/regime_tracker.py --code 6488 --support 430
+
+# 靜默模式（供 hook 呼叫，只輸出一行摘要）
+.venv\Scripts\python.exe scripts/regime_tracker.py --code 6488 --support 430 --quiet
+
+# 查看歷史追蹤紀錄
+.venv\Scripts\python.exe scripts/regime_tracker.py --code 6488 --history
+
+# 不指定 support（自動推算為近 120 日 P25，四捨五入到 10 元）
+.venv\Scripts\python.exe scripts/regime_tracker.py --code 6488
+```
+
+**三個追蹤指標**：
+
+| 指標 | 計算方式 | 意義 |
+|------|---------|------|
+| OU 均衡價 θ | 90日窗口 OLS 估算 | 均值回歸模型認為的「公允中心」|
+| 支撐守住率 | 近 60 日站穩指定支撐的比率 + 最長連續天數 | 新底部是否確立 |
+| 最近回測深度 | 近 120 日內最大峰→谷跌幅 | 買盤承接位是否上移 |
+
+**輸出位置**：`journals/regime_tracking_{code}.csv`（每次執行追加一行）
+
+**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/regime-6488.md` 的執行標的，由 daily-review 步驟 11 自動門控觸發。詳見 `.agents/hooks/README.md`。
+
+---
+
+## 十二、前瞻觀點到期提醒
+
+### `thesis_expiry.py` — 觀點與催化劑到期掃描
+
+> 掃描 `strategies/thesis_tracking.md` Active 區 + `trades/*.md` 催化劑表中帶有未來日期的項目。
+> 通常由 daily-review hook 自動��發（每 5 個交易日），也可手動執行。
+
+```powershell
+# 完整報告
+.venv\Scripts\python.exe scripts/thesis_expiry.py
+
+# 靜默模式（供 hook 呼叫）
+.venv\Scripts\python.exe scripts/thesis_expiry.py --quiet
+
+# 自訂提醒天數（即將到期 14 天、預覽 60 天）
+.venv\Scripts\python.exe scripts/thesis_expiry.py --warn-days 14 --preview-days 60
+```
+
+**掃描來源與條件**：
+
+| 來源 | 解析內容 | 收錄條件 |
+|------|---------|---------|
+| `strategies/thesis_tracking.md` Active 區 | 每個 `### T-NNN` entry 的 `驗證時點` | 所有 Active 狀態的 entry |
+| `trades/*.md` 催化劑表 | 表格中 `日期` 欄位 | 僅收錄日期 > 今天的項目（過去事件忽略）|
+
+**提醒分類**：
+
+| 類別 | 條件 | 圖示 |
+|------|------|------|
+| 已過期未驗 | 驗證時點已過，仍在 Active 區 | 🚨 |
+| 即將到期 | 驗證時點在未來 7 天內（可調） | ⏰ |
+| 預覽 | 驗證時點在未來 30 天內（可調） | 📅 |
+
+**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/thesis-expiry.md` 的執行標的，由 daily-review 步驟 11 自動門控觸發。詳見 `.agents/hooks/README.md`。
+
+---
+
+## 十三、規劃中但尚未實作的量化方法
 
 > 這些方法曾在策略設計中提及，待需求成熟時實作。  
 > **與現有工具的差異**：現有工具回答「現在發生什麼」，以下方法回答「未來風險有多大、精確度有多高」。
