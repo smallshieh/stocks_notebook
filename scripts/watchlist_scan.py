@@ -18,6 +18,9 @@ import time
 import datetime
 import yfinance as yf
 import pandas as pd
+from curl_cffi import requests as creq
+
+_CURL_SESSION = creq.Session(verify=False, impersonate='chrome')
 
 import warnings, logging
 warnings.filterwarnings('ignore')
@@ -65,7 +68,7 @@ def get_market_data(code: str, retries=3, delay=5):
     for suffix in ['.TW', '.TWO']:
         for attempt in range(retries):
             try:
-                hist = yf.Ticker(f"{code}{suffix}").history(period="6mo", auto_adjust=False)
+                hist = yf.Ticker(f"{code}{suffix}", session=_CURL_SESSION).history(period="6mo", auto_adjust=False)
                 if hist is not None and not hist.empty:
                     close = hist['Close'].dropna()
                     price = float(close.iloc[-1])

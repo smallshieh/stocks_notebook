@@ -203,11 +203,11 @@ def run():
     history = load_history()
     if history and history[-1]['date'] == TODAY:
         print(f"\n  今日已有記錄（{TODAY}），不重複寫入。")
+        print_trend(history[:-1], history[-1])
     else:
         append_record(today_rec)
         print(f"  已寫入 portfolio_history.csv")
-
-    print_trend(history, today_rec)
+        print_trend(history, today_rec)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,48 @@
+============================================================ 
+執行時間: 2026-03-16 
+============================================================ 
+[1/3] 執行持倉健診... 
+Traceback (most recent call last):
+  File "S:\股票筆記\scripts\portfolio_report.py", line 268, in <module>
+    scan()
+    ~~~~^^
+  File "S:\股票筆記\scripts\portfolio_report.py", line 125, in scan
+    result = analyze(code, cost)
+  File "S:\股票筆記\scripts\portfolio_report.py", line 73, in analyze
+    ticker, hist = get_tw_ticker(code)
+                   ~~~~~~~~~~~~~^^^^^^
+  File "S:\股票筆記\scripts\portfolio_report.py", line 62, in get_tw_ticker
+    hist = ticker.history(period="3mo", auto_adjust=False)
+  File "S:\股票筆記\.venv\Lib\site-packages\yfinance\utils.py", line 95, in wrapper
+    result = func(*args, **kwargs)
+  File "S:\股票筆記\.venv\Lib\site-packages\yfinance\base.py", line 129, in history
+    return self._lazy_load_price_history().history(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "S:\股票筆記\.venv\Lib\site-packages\yfinance\base.py", line 135, in _lazy_load_price_history
+    self._price_history = PriceHistory(self._data, self.ticker, self._get_ticker_tz(timeout=10))
+                                                                ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\yfinance\base.py", line 144, in _get_ticker_tz
+    if tz and not utils.is_valid_timezone(tz):
+                  ~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\yfinance\utils.py", line 870, in is_valid_timezone
+    _tz.timezone(tz)
+    ~~~~~~~~~~~~^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\__init__.py", line 181, in timezone
+    if zone in all_timezones_set:  # noqa
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\lazy.py", line 154, in _lazy
+    for i in fill_iter.pop():
+             ~~~~~~~~~~~~~^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\lazy.py", line 101, in _lazy
+    list.extend(self, fill_iter.pop())
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\__init__.py", line 1116, in <genexpr>
+    tz for tz in _all_timezones_unchecked if resource_exists(tz))
+                                             ~~~~~~~~~~~~~~~^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\__init__.py", line 121, in resource_exists
+    open_resource(name).close()
+    ~~~~~~~~~~~~~^^^^^^
+  File "S:\股票筆記\.venv\Lib\site-packages\pytz\__init__.py", line 108, in open_resource
+    return open(filename, 'rb')
+KeyboardInterrupt
+^C
