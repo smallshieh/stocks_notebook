@@ -229,6 +229,41 @@ def scan():
     tactical_warn = ' ⚠️ 超出上限 (35%)' if tactical_pct > 35 else ''
     core_note    = ' 📌 偏高，長線防禦性強' if core_pct > 60 else ''
 
+    # 提前讀取現金餘額（讓 bucket_section 可填入）
+    _history_path_early = os.path.join(TRADES_DIR, '..', 'portfolio_history.csv')
+    _cash_bal_early = None
+    if os.path.exists(_history_path_early):
+        import csv as _csv_e, io as _io_e
+        with open(_history_path_early, 'r', encoding='utf-8') as _fe:
+            _lines_e = _fe.readlines()
+        for _le in reversed(_lines_e[1:]):
+            _pe = _le.strip().split(',')
+            if len(_pe) >= 3 and _pe[2]:
+                try:
+                    _c = float(_pe[2])
+                    if _c > 0:
+                        _cash_bal_early = _c
+                        break
+                except ValueError:
+                    pass
+    # argv 覆寫：--cash= 或 --cash-delta=
+    for _arg in sys.argv[1:]:
+        if _arg.startswith('--cash='):
+            try: _cash_bal_early = float(_arg.split('=', 1)[1].replace(',', ''))
+            except ValueError: pass
+        elif _arg.startswith('--cash-delta='):
+            try: _cash_bal_early = (_cash_bal_early or 0.0) + float(_arg.split('=', 1)[1].replace(',', ''))
+            except ValueError: pass
+
+    if _cash_bal_early is not None:
+        _cash_str = f"{_cash_bal_early:,.0f}"
+        _total_pv = total_invested + _cash_bal_early
+        _cash_pct = _cash_bal_early / _total_pv * 100
+        _cash_status = '🔴 嚴重不足' if _cash_pct < 10 else ('🟡 低配' if _cash_pct < 15 else ('✅' if _cash_pct <= 25 else '🟡 高配'))
+        _cash_row = f"| Cash（銀彈消防栓）| {_cash_str} | {_cash_pct:.1f}% | 20% | {_cash_status} |\n"
+    else:
+        _cash_row = "| Cash（銀彈消防栓）| （請手動填入）| — | 20% | — |\n"
+
     bucket_section = (
         "\n\n## 💼 資金桶檢查 (依 capital/capital_config.md)\n"
         "\n### 現價口徑（風險 / 曝險視角）\n"
@@ -236,7 +271,7 @@ def scan():
         "|------|---------:|-----:|-----:|------|\n"
         f"| Core（底倉水庫）| {core_val:,.0f} | {core_pct:.1f}% | 50% | {'✅' if 40<=core_pct<=60 else '📌'}{core_note} |\n"
         f"| Tactical（戰術水管）| {tact_val:,.0f} | {tactical_pct:.1f}% | 30% | {'✅' if tactical_pct<=35 else '⚠️'}{tactical_warn} |\n"
-        f"| Cash（銀彈消防栓）| （請手動填入）| — | 20% | — |\n"
+        + _cash_row +
         f"| **已投資合計** | **{total_invested:,.0f}** | 100% | | |\n"
         "\n### 成本口徑（預算 / 投入視角）\n"
         "| 桶別 | 成本基礎 | 佔比 | 現價市值 | 帳面損益 |\n"
