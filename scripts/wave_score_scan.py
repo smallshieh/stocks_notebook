@@ -368,7 +368,8 @@ def restore_from_cache(code, cache):
     from datetime import date as _date
     c = dict(cache[code])
     c['as_of'] = _date.fromisoformat(c['as_of'])
-    c['mom']   = 0.0  # 物理引擎動量，僅 display 用，cache 不儲存
+    c['mom']   = 0.0   # 物理引擎動量，僅 display 用，cache 不儲存
+    c['code']  = code  # cache JSON 以 code 為 key，value 本身不含 code，補回
     return c
 
 

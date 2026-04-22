@@ -146,15 +146,14 @@ def parse_trade_catalysts(trades_dir: str) -> list[dict]:
                 continue
 
             cols = [c.strip() for c in line.split('|')]
-            # 至少要有 日期, 事件, 來源, 影響評估, 行動
-            if len(cols) < 6:
+            # 四欄表：| 日期 | 事件 | 影響評估 | 行動 |  → len==6
+            # 五欄表：| 日期 | 事件 | 來源 | 影響評估 | 行動 | → len==7
+            if len(cols) == 6:
+                date_str, event, impact, action = cols[1], cols[2], cols[3], cols[4]
+            elif len(cols) >= 7:
+                date_str, event, impact, action = cols[1], cols[2], cols[4], cols[5]
+            else:
                 continue
-
-            date_str = cols[1]
-            event = cols[2]
-            source = cols[3]
-            impact = cols[4]
-            action = cols[5]
 
             # 解析日期
             date_match = re.match(r'(\d{4}-\d{2}-\d{2})', date_str)

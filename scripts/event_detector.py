@@ -76,12 +76,12 @@ def save_state(state):
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-def append_to_scan_log(lines, today_str):
-    log_path = os.path.join(LOGS_DIR, f'{today_str}_scan.log')
-    with open(log_path, 'a', encoding='utf-8') as f:
-        f.write('\n[事件偵測]\n')
-        for line in lines:
-            f.write(line + '\n')
+def print_event_summary(lines):
+    # bat 以 >> LOGFILE 重定向此程序的 stdout，直接 print 即可寫入 log
+    # 不要用 open() 再寫一次，否則與 bat 持有的 handle 衝突 → PermissionError
+    print('\n[事件偵測]')
+    for line in lines:
+        print(line)
 
 
 # ── 從 trades MD 提取閾值 ─────────────────────────────────────────────────────
@@ -315,8 +315,7 @@ def main():
 
     if not args.dry_run:
         if log_lines:
-            append_to_scan_log(log_lines, today_str)
-            print(f'  → 已寫入 {today_str}_scan.log')
+            print_event_summary(log_lines)
         save_state(new_state)
     else:
         print('  [dry-run，未寫入]')

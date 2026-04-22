@@ -1,7 +1,12 @@
 {
   "1210_ma20": {
-    "count": 1,
-    "last_date": "2026-04-21",
+    "count": 2,
+    "last_date": "2026-04-22",
     "streak_start": "2026-04-21"
+  },
+  "1215_ma20": {
+    "count": 1,
+    "last_date": "2026-04-22",
+    "streak_start": "2026-04-22"
   }
 }

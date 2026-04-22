@@ -19,7 +19,7 @@
 - Notion 同步：`.venv/Scripts/python.exe scripts/sync_to_notion.py <檔案路徑>`（憑證 `scripts/notion_creds.py`，已 gitignore）
 
 ## Hook 系統
-- `/daily-review` 步驟 11 會自動掃描 `.agents/hooks/post-daily-review/` 下的 hook 並按條件觸發
+- `/daily-review` 步驟 13 會自動掃描 `.agents/hooks/post-daily-review/` 下的 hook 並按條件觸發
 - Hook 檔案格式、觸發邏輯、新增/暫停/刪除方式 → 見 [.agents/hooks/README.md](.agents/hooks/README.md)
 - 新增 hook 只需在該目錄丟 `.md` 檔，**不需要改 daily-review.md**
 - 暫停 hook：檔名加底線前綴（如 `_regime-6488.md`）

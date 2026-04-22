@@ -10,6 +10,9 @@
 
 | 腳本 | 類型 | 功能摘要 |
 |------|------|---------|
+| **`market_state.py`** | **決策架構（來源A）** | **大盤狀態判斷（多頭/震盪/空頭）+ 建議資產配置** |
+| **`chip_check.py`** | **決策架構（來源B）** | **TWSE 三大法人籌碼抓取 + A/B/C/D 情境觸發核對** |
+| **`wave_score_scan.py`** | **決策架構（來源C）** | **全持倉 Wave Score 掃描（加碼/減碼/觀察訊號）** |
 | `stock_analyzer.py` | 資料查詢 | 即時股價、月線、停損預警 |
 | `physics_engine.py` | 物理模型 | 動量、動能、雷諾數診斷（模組）|
 | `quantile_engine.py` | 統計模型 | 回檔分位數決策（賣出/買回/暫停區）|
@@ -29,6 +32,61 @@
 | `regime_tracker.py` | ��控工具 | 價格區間遷移追蹤（OU θ、支撐守住率、回測深度）|
 | `thesis_expiry.py` | 監控工具 | 前瞻觀點與催化劑到期提醒 |
 | `daily_scan.bat` | 排程 | 每日自動執行盤後掃描 |
+
+---
+
+## 零、每日決策架構工具（daily-review 四源合議）
+
+> 這三個腳本是 `/daily-review` workflow 的核心數據來源，輸出「訊號」供 Agent 合議成整體操作方向。
+
+### `market_state.py` — 大盤狀態（來源 A）
+
+```powershell
+.venv\Scripts\python.exe scripts/market_state.py
+.venv\Scripts\python.exe scripts/market_state.py --quiet   # 只輸出 Markdown 段落
+```
+
+**輸出**：市場狀態（多頭確立/震盪/空頭/危機）、建議 Core:Tactical:Cash 比例、操作指引
+
+---
+
+### `chip_check.py` — 三大法人籌碼（來源 B）
+
+```powershell
+# 當日籌碼（自動日期）
+.venv\Scripts\python.exe scripts/chip_check.py
+
+# 指定日期（補歷史快取）
+.venv\Scripts\python.exe scripts/chip_check.py --date 20260421
+
+# 只輸出 Markdown 段落（供日誌貼入）
+.venv\Scripts\python.exe scripts/chip_check.py --quiet
+
+# 單行摘要（供 daily-review 整合）
+.venv\Scripts\python.exe scripts/chip_check.py --summary
+```
+
+**資料來源**：TWSE BFI82U API（無需帳號，自動抓取）  
+**快取位置**：`journals/logs/_chip_history.json`（保留近 10 日）  
+**觸發情境**：
+
+| 情境 | 名稱 | 觸發條件 | 對應操作 |
+|------|------|---------|----------|
+| A | 多頭鞏固 | 外資連三日買超 ≥ 30 億 | 波段倉持有，停利不提前 |
+| B | 高檔出貨 | 外資單日轉賣超 ≥ 30 億 + 爆量收黑 | 波段倉減碼（2330/2454/2382 優先）|
+| C | 短線退潮 | 投信翻買後連兩日撤退 | 觀察，不加碼 |
+| D | 對沖解除 | 自營商避險部位由負轉正 | 可輕倉跟進 |
+
+---
+
+### `wave_score_scan.py` — Wave Score 全倉掃描（來源 C）
+
+```powershell
+.venv\Scripts\python.exe scripts/wave_score_scan.py
+```
+
+**輸出位置**：`journals/logs/{TODAY}_scan.log`、覆寫戰術指南 `## Wave Score 日更新` 區塊  
+**訊號分類**：🔴 需即時處理（動能背離）/ 🟢 加碼機會 / 🟡 觀察
 
 ---
 
@@ -291,7 +349,7 @@
 
 **輸出位置**：`journals/regime_tracking_{code}.csv`（每次執行追加一行）
 
-**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/regime-6488.md` 的執行標的，由 daily-review 步驟 11 自動門控觸發。詳見 `.agents/hooks/README.md`。
+**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/regime-6488.md` 的執行標的，由 daily-review 步驟 13 自動門控觸發。詳見 `.agents/hooks/README.md`。
 
 ---
 
@@ -328,7 +386,7 @@
 | 即將到期 | 驗證時點在未來 7 天內（可調） | ⏰ |
 | 預覽 | 驗證時點在未來 30 天內（可調） | 📅 |
 
-**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/thesis-expiry.md` 的執行標的，由 daily-review 步驟 11 自動門控觸發。詳見 `.agents/hooks/README.md`。
+**與 hook 系統的關係**：本腳本是 `.agents/hooks/post-daily-review/thesis-expiry.md` 的執行標的，由 daily-review 步驟 13 自動門控觸發。詳見 `.agents/hooks/README.md`。
 
 ---
 
@@ -342,81 +400,11 @@
 | **CVaR**（條件風險值）/ Power Law | 極端下跌的尾端機率。讓停損線設定有統計依據而非拍腦袋 | 🟡 中 | 固定 -10% 停損（粗略）|
 | **HMM**（隱馬可夫模型）| 市場狀態偵測（趨勢 / 震盪 / 崩跌），比雷諾數更嚴謹 | 🟠 低 | 雷諾數 Re（已夠用）|
 
-*(註：GARCH 波動率與 GBM 趨勢模型已實作於 `ou_analysis.py` 與 `gbm_analysis.py`)*venv\Scripts\python.exe scripts/performance_report.py
-```
+*(註：GARCH 波動率與 GBM 趨勢模型已實作於 `ou_analysis.py` 與 `gbm_analysis.py`)*
 
 ---
 
-## 七、Notion 同步
-
-### `sync_to_notion.py` — 同步 MD 至 Notion
-
-```powershell
-# 同步單一檔案
-.venv\Scripts\python.exe scripts/sync_to_notion.py journals/戰術指南.md
-
-# 同步多檔
-.venv\Scripts\python.exe scripts/sync_to_notion.py journals/戰術指南.md trades/6488_環球晶.md
-```
-
-**憑證位置**：`scripts/notion_creds.py`（已 gitignore，不可提交）  
-**詳細說明**：`/sync-notion` workflow
-
----
-
-## 八、stocks.csv 維護
-
-### `update_stocks.py` — 新增標的清單
-
-> 只新增，不刪除（下市須手動清除）
-
-```powershell
-# 新增單一標的（自動偵測上市/上櫃 + 抓名稱）
-.venv\Scripts\python.exe scripts/update_stocks.py --code 2454
-
-# 批次新增
-.venv\Scripts\python.exe scripts/update_stocks.py --code 2454,3481,4991
-
-# 手動指定市場與名稱（跳過自動查詢，速度更快）
-.venv\Scripts\python.exe scripts/update_stocks.py --code 2454 --market TWO --name 聯發科 --type 股票
-
-# 預覽模式（不寫入）
-.venv\Scripts\python.exe scripts/update_stocks.py --code 2454 --dry-run
-```
-
-**判斷邏輯**：先查 `stocks.csv`（已存在則跳過），再自動試 `.TWO` / `.TW` 取得 ticker 與名稱。
-
----
-
-## 九、規劃中但尚未實作的量化方法
-
-> 這些方法曾在策略設計中提及，待需求成熟時實作。  
-> **與現有工具的差異**：現有工具回答「現在發生什麼」，以下方法回答「未來風險有多大、精確度有多高」。
-
-| 方法 | 用途 | 優先度 | 現有替代 |
-|------|------|--------|---------|
-| **GARCH**（廣義自迴歸條件異方差）| 動態波動率估算。OU 模型的 σ 目前假設固定，GARCH 讓 σ 隨時間變動，黑天鵝環境下更準確 | ⭐ 高 | rolling std（不夠準）|
-| **CVaR**（條件風險值）/ Power Law | 極端下跌的尾端機率。讓停損線設定有統計依據而非拍腦袋 | 🟡 中 | 固定 -10% 停損（粗略）|
-| **GBM + drift**（幾何布朗運動）| 趨勢型股票的走勢機率模擬（非均值回歸型）| 🟠 低 | — |
-| **HMM**（隱馬可夫模型）| 市場狀態偵測（趨勢 / 震盪 / 崩跌），比雷諾數更嚴謹 | 🟠 低 | 雷諾數 Re（已夠用）|
-
-### 建議優先實作：GARCH 波動率修正
-
-**問題**：`ou_analysis.py` 目前的 σ 由 OLS 殘差估算，假設波動率固定。  
-**現象**：黑天鵝期間 σ 會突然放大，導致機率預測偏保守（低估下跌速度）。  
-**解法**：在 `estimate_ou_params()` 中加入 `arch` 套件的 GARCH(1,1) 修正：
-
-```python
-# 需先安裝：pip install arch
-from arch import arch_model
-garch = arch_model(returns * 100, vol='Garch', p=1, q=1)
-res = garch.fit(disp='off')
-sigma_garch = res.conditional_volatility[-1] / 100 * np.sqrt(252)
-```
-
----
-
-## 十、注意事項
+## 十四、注意事項
 
 1. **SSL 問題**：yfinance 有時因 SSL 失敗，程式碼會自動 fallback 至 curl_cffi 或 TWSE/TPEX 直連 API
 2. **ticker 格式**：上市用 `.TW`，上櫃用 `.TWO`，不確定時查 `stocks.csv`

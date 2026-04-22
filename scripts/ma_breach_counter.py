@@ -27,21 +27,37 @@ from curl_cffi import requests as creq
 import yfinance as yf
 
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_ma_breach_state.json')
+STOCKS_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'stocks.csv')
 
 _SESSION = creq.Session(verify=False, impersonate='chrome')
 
 
+def resolve_ticker(code: str) -> str:
+    """從 stocks.csv 取得完整 ticker（含交易所 suffix）。找不到則回傳空字串。"""
+    try:
+        import csv
+        with open(STOCKS_CSV, 'r', encoding='utf-8') as f:
+            for row in csv.DictReader(f):
+                if row['code'] == code:
+                    return row['ticker']
+    except Exception:
+        pass
+    return ''
+
+
 def get_price_and_ma(code: str, ma_period: int):
-    for suffix in ['.TW', '.TWO']:
-        try:
-            hist = yf.Ticker(f"{code}{suffix}", session=_SESSION).history(period="3mo", auto_adjust=False)
-            if hist is not None and not hist.empty:
-                close = hist['Close'].dropna()
-                price = float(close.iloc[-1])
-                ma = float(close.rolling(ma_period, min_periods=1).mean().iloc[-1])
-                return price, ma
-        except Exception:
-            pass
+    ticker = resolve_ticker(code)
+    if not ticker:
+        return None, None
+    try:
+        hist = yf.Ticker(ticker, session=_SESSION).history(period="3mo", auto_adjust=False)
+        if hist is not None and not hist.empty:
+            close = hist['Close'].dropna()
+            price = float(close.iloc[-1])
+            ma = float(close.rolling(ma_period, min_periods=1).mean().iloc[-1])
+            return price, ma
+    except Exception:
+        pass
     return None, None
 
 
