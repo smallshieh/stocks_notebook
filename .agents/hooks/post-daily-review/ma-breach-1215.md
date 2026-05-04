@@ -28,6 +28,10 @@ alert_prefix: "📉 卜蜂月線觀察"
 
 ### Agent 執行指令（達門檻時強制執行）
 
+> **v2 結構化輸出**：此 hook 腳本現在輸出 JSON `{hook, status, severity, targets[{code, name, action, summary, detail}]}`。
+> Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
+> `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
+
 > ⚠️ **配息防禦股特別規則**：底倉以殖利率錨定，月線跌破≠減碼。波段倉另行用 L2 條件判斷。
 
 當輸出包含「已達 3 日門檻」時，daily-review agent 必須：

@@ -236,6 +236,8 @@ def main():
                         help='顯示歷史追蹤紀錄')
     parser.add_argument('--quiet', action='store_true',
                         help='靜默模式，只輸出摘要行')
+    parser.add_argument('--json', action='store_true',
+                        help='輸出結構化 JSON 供 hook_runner 使用')
     args = parser.parse_args()
 
     code = args.code
@@ -291,6 +293,33 @@ def main():
 
     if args.quiet:
         print(summary)
+        append_csv(code, row)
+        return
+
+    # JSON output (before full output)
+    if args.json:
+        from hook_output import HookResult, HookTarget, output, today_str
+
+        hook_name = f"regime-{code}"
+        detail = {
+            "ou_theta": float(ou['theta']),
+            "support": support,
+            "hold_rate_pct": sh['hold_rate_pct'],
+            "max_streak_days": sh['max_streak_days'],
+            "drawdown_trough": float(dd['trough']),
+            "drawdown_pct": dd['drawdown_pct'],
+            "current_price": float(current_price),
+        }
+        result = HookResult(
+            hook=hook_name, timestamp=str(prices.index[-1].date()),
+            status="ok", severity="low",
+            targets=[HookTarget(
+                code=code, name=f"regime-{code}", action="no_action",
+                summary=summary,
+                detail=detail,
+            )],
+        )
+        output(result)
         append_csv(code, row)
         return
 

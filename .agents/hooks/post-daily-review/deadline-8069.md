@@ -28,6 +28,10 @@ alert_prefix: "⏳ 元太硬死線"
 
 ### Agent 執行指令（達門檻時強制執行）
 
+> **v2 結構化輸出**：此 hook 腳本現在輸出 JSON `{hook, status, severity, targets[{code, name, action, summary, detail}]}`。
+> Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
+> `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
+
 當輸出包含「已達門檻」或「⚠️」時，daily-review agent 必須：
 1. 將 8069 元太移入戰術指南 `## P1`，備注「硬死線 ≤ 20 交易日，不論股價必須在 06-30 前完成清倉」
 2. 在 P1 動作欄加入具體出場窗口（例如：「若不到 165 元，於 06-25 前市價清出」）

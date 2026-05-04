@@ -16,12 +16,12 @@ event_detector.py — Layer 3 事件偵測器
   MU_FLIP      — GBM μ 由正轉負 或 由負轉正（趨勢基本面改變）
 
 資料來源：
-  輸入 1：journals/logs/{TODAY}_wave_scores.json（wave cache，wave_score_scan 已產生）
+  輸入 1：journals/logs/{REVIEW_DATE}_wave_scores.json（wave cache，wave_score_scan 已產生）
   輸入 2：trades/*.md（regex 提取目標價 / 停損價）
   輸入 3：.agents/hooks/post-daily-review/_event_state.json（前次狀態）
 
 輸出：
-  追加至 journals/logs/{TODAY}_scan.log
+  追加至 journals/logs/{REVIEW_DATE}_scan.log
   更新 _event_state.json
 
 用法：
@@ -46,7 +46,7 @@ HOOKS_DIR  = os.path.join(BASE_DIR, '.agents', 'hooks', 'post-daily-review')
 LOGS_DIR   = os.path.join(BASE_DIR, 'journals', 'logs')
 STATE_FILE = os.path.join(HOOKS_DIR, '_event_state.json')
 
-TODAY = date.today().isoformat()
+TODAY = os.environ.get('REVIEW_DATE') or date.today().isoformat()
 
 # 閾值常數
 NEAR_TARGET_RATIO = 0.97   # 現價 >= 目標價 × 97% → 觸發 NEAR_TARGET

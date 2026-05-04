@@ -31,3 +31,9 @@ alert_prefix: "🔁 大成回補提醒"
 1. 只把結果寫進盤後日誌 `## Hooks`
 2. 若條件達成，於 daily-review 的整體研判或 1210 區塊標示「可評估回補 100 股」
 3. **不要**由 hook 直接把 1210 自動移回 P2，也不要自動改成「一定買回」
+
+### Agent 執行指令
+
+> **v2 結構化輸出**：此 hook 腳本現在輸出 JSON `{hook, status, severity, targets[{code, name, action, summary, detail}]}`。
+> Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
+> `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`

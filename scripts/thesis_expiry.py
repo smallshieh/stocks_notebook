@@ -314,6 +314,8 @@ def main():
                         help='幾天內到期視為「即將到期」（預設 7）')
     parser.add_argument('--preview-days', type=int, default=30,
                         help='幾天內到期顯示預覽（預設 30）')
+    parser.add_argument('--json', action='store_true',
+                        help='輸出結構化 JSON 供 hook_runner 使用')
     args = parser.parse_args()
 
     # 收集所有 entries
@@ -325,6 +327,43 @@ def main():
     classified = classify_entries(entries, args.warn_days, args.preview_days)
 
     # 輸出
+    if args.json:
+        from hook_output import HookResult, HookTarget, output, today_str
+
+        targets = []
+        for e in classified['overdue']:
+            targets.append(HookTarget(
+                code="*", name=e['title'][:40], action="p1_upgrade",
+                summary=f"🚨 已過期 {-e['days_left']} 天: {e['id']}",
+                detail={"days_left": e['days_left'], "verify_date": e.get('verify_date', ''), "source": e.get('source', '')},
+            ))
+        for e in classified['urgent']:
+            targets.append(HookTarget(
+                code="*", name=e['title'][:40], action="todo_add",
+                summary=f"⏰ {e['days_left']} 天內到期: {e['id']}",
+                detail={"days_left": e['days_left'], "verify_date": e.get('verify_date', ''), "source": e.get('source', '')},
+            ))
+        for e in classified['upcoming']:
+            targets.append(HookTarget(
+                code="*", name=e['title'][:40], action="no_action",
+                summary=f"📅 預覽: {e['id']}（{e['days_left']} 天）",
+                detail={"days_left": e['days_left'], "verify_date": e.get('verify_date', '')},
+            ))
+
+        if classified['overdue'] or classified['urgent']:
+            severity = "high" if classified['overdue'] else "medium"
+            status = "alert"
+        else:
+            severity = "low"
+            status = "ok"
+
+        result = HookResult(
+            hook="thesis-expiry", timestamp=today_str(),
+            status=status, severity=severity, targets=targets,
+        )
+        output(result)
+        return
+
     if args.quiet:
         print(format_quiet(classified))
     else:

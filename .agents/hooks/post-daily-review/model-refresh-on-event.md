@@ -35,3 +35,9 @@ alert_prefix: "🔄 模型刷新"
 
 - 該標的 MD 中找不到對應 section（例如 ETF、配息股通常無 GBM 預估區塊）→ 跳過，不報錯
 - 行情資料抓取失敗 → 標記 ❌，不更新，下次 daily-review 重試
+
+### Agent 執行指令
+
+> **v2 結構化輸出**：此 hook 腳本現在輸出 JSON `{hook, status, severity, targets[{code, name, action, summary, detail}]}`。
+> Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
+> `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`

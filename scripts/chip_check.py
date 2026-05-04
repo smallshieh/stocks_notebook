@@ -313,6 +313,8 @@ def main():
         elif arg == "--date" and len(sys.argv) > sys.argv.index(arg) + 1:
             date_str = sys.argv[sys.argv.index(arg) + 1].replace("-", "")
 
+    if not date_str and os.environ.get("REVIEW_DATE"):
+        date_str = os.environ["REVIEW_DATE"].replace("-", "")
     if not date_str:
         date_str = datetime.date.today().strftime("%Y%m%d")
 

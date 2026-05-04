@@ -1,21 +1,21 @@
 """
-wave_score_scan.py — 每日成長趨勢股 Wave Score 掃描器
+wave_score_scan.py — 每日訊號診斷掃描器
 =====================================================
 收盤後執行，自動：
-  1. 掃描 trades/ 下所有成長趨勢股（🚀 / 📈）
-  2. 計算最新 Wave Score（均線 + GBM + 分位數 + 物理引擎）
+  1. 掃描 trades/ 下納入 Wave 診斷的標的
+  2. 計算最新 Wave 分項（均線 + GBM + 分位數 + 物理引擎）
   3. 寫回各 MD 的 Wave Score 歷史表（若無則自動建立）
   4. 更新基本資訊的現價 / 月線欄位
-  5. 覆寫 journals/戰術指南.md 末尾的「📊 Wave Score 日更新」區塊
+  5. 覆寫 journals/戰術指南.md 末尾的「📊 訊號診斷日更新」區塊
 
 行動優先級：
-  🔴 動能背離 / 波段破壞  — 進入賣出區且 Wave ≤ 0，或低於暫停線
-  🟢 加碼機會            — 解凍 / 觸發門檻 / 買回區
-  🟡 觀察               — 賣出區趨勢延伸、跌破月線、接近賣出區
+  🔴 需即時處理  — 硬規則或政策確認的防守訊號
+  🟡 觀察        — 賣出區延伸、月線轉弱、區間賣出區等未確認訊號
   ✅ 無需行動
 
 用法：
   python scripts/wave_score_scan.py
+  python scripts/wave_score_scan.py --date 2026-05-04
   python scripts/wave_score_scan.py --dry-run   # 僅顯示，不寫入
 """
 
@@ -25,7 +25,6 @@ import re
 import glob
 import json
 import argparse
-from datetime import date
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -33,6 +32,16 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
+from signal_policy import (
+    compute_volume_metrics,
+    evaluate_signal,
+    load_position_policies,
+    load_signal_state,
+    recent_entries,
+    record_signal_state,
+    resolve_review_date,
+    save_signal_state,
+)
 
 BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRADES_DIR   = os.path.join(BASE_DIR, 'trades')
@@ -41,7 +50,8 @@ TACTICAL_MD  = os.path.join(JOURNALS_DIR, '戰術指南.md')
 LOGS_DIR     = os.path.join(JOURNALS_DIR, 'logs')
 
 # 區塊標記（用於在戰術指南末尾找到並覆寫）
-WAVE_SECTION_MARKER = '## 📊 Wave Score 日更新'
+WAVE_SECTION_MARKER = '## 📊 訊號診斷日更新'
+OLD_WAVE_SECTION_MARKERS = ['## 📊 Wave Score 日更新']
 
 
 # ── 基礎工具 ─────────────────────────────────────────────────────────────────
@@ -179,6 +189,7 @@ def analyze(code, ticker, period='1y'):
     q_s, q_data        = calc_quantile_score(df, current)
     phys_s, mom        = calc_physics_score(df)
     total              = ma_s + gbm_s + q_s + phys_s
+    volume             = compute_volume_metrics(df)
 
     return dict(
         code=code, current=current, as_of=as_of,
@@ -190,76 +201,27 @@ def analyze(code, ticker, period='1y'):
         sell_low=q_data['sell_low'],
         buy_high=q_data['buy_high'],
         buy_low=q_data['buy_low'],
+        **volume,
     )
 
 
 # ── 行動偵測 ──────────────────────────────────────────────────────────────────
 
-def detect_actions(r, last_score):
+def detect_actions(r, decision):
     """
     回傳 [(priority, tag, msg)]
     priority: 0=🔴  1=🟢  2=🟡
 
-    核心原則：
-      進入賣出區 + Wave > 0  → 趨勢延伸（🟡）
-      進入賣出區 + Wave <= 0 → 動能背離（🔴）
-      跌破月線              → 🟡（Wave <= -3 升級為 🔴）
-      低於暫停線            → 🔴
+    行動不再由 Wave total 直接決定，統一採用 signal_policy 的策略路由。
     """
-    t       = r['total']
-    current = r['current']
-    actions = []
-
-    # ── 🔴 動能背離 / 波段破壞 ───────────────────────────────────────────────
-    if r['q_s'] == -2 and t <= 0:
-        dist = (current - r['sell_low']) / r['sell_low'] * 100
-        actions.append((0, '🔴 減持訊號',
-                        f'進入賣出區(+{dist:.1f}%) 且 Wave {t:+d}，動能背離'))
-
-    if r['q_s'] <= -3:
-        actions.append((0, '🔴 波段破壞',
-                        f'現價 {current:.1f} 低於歷史暫停線'))
-
-    if current < r['ma20'] and t <= -3:
-        dist = (r['ma20'] - current) / r['ma20'] * 100
-        actions.append((0, '🔴 月線深度失守',
-                        f'{current:.1f} < MA20 {r["ma20"]:.1f}(-{dist:.1f}%) Wave {t:+d}'))
-
-    # ── 🟢 加碼機會 ──────────────────────────────────────────────────────────
-    if last_score is not None and last_score <= -2 and t >= -1:
-        actions.append((1, '🟢 解凍',
-                        f'Wave {last_score:+d} → {t:+d}，加碼條件成立'))
-    elif t >= 3:
-        actions.append((1, '🟢 強力加碼', f'Wave {t:+d}'))
-    elif t >= 1 and (last_score is None or last_score < 1):
-        last_str = f'{last_score:+d}' if last_score is not None else '無'
-        actions.append((1, '🟢 輕倉加碼', f'Wave {t:+d}（上次 {last_str}）'))
-
-    if r['q_s'] >= 2:
-        actions.append((1, '🟢 買回區',
-                        f'進入回測買點 {r["buy_low"]:.1f}～{r["buy_high"]:.1f}'))
-
-    # ── 🟡 觀察 ──────────────────────────────────────────────────────────────
-    if r['q_s'] == -2 and t > 0:
-        dist = (current - r['sell_low']) / r['sell_low'] * 100
-        actions.append((2, '🟡 賣出區（趨勢延伸）',
-                        f'超賣出下緣 +{dist:.1f}%，Wave {t:+d} 仍強，等爆量收黑訊號'))
-
-    if current < r['ma20'] and t > -3:
-        dist = (r['ma20'] - current) / r['ma20'] * 100
-        actions.append((2, '🟡 跌破月線',
-                        f'{current:.1f} < MA20 {r["ma20"]:.1f}(-{dist:.1f}%)'))
-
-    if r['q_s'] == 0 and r['sell_low'] > 0 and t >= 0:
-        dist = (r['sell_low'] - current) / r['sell_low'] * 100
-        if dist < 2:
-            actions.append((2, '🟡 接近賣出區',
-                            f'距賣出下緣 {r["sell_low"]:.1f} 僅 {dist:.1f}%'))
-
-    if last_score is not None and last_score >= 0 and t <= -2:
-        actions.append((2, '🟡 惡化', f'Wave {last_score:+d} → {t:+d}'))
-
-    return sorted(actions, key=lambda x: x[0])
+    if decision.action_priority > 2:
+        return []
+    msg = (
+        f'{decision.recommendation}；{decision.reason}'
+        f'；品質 {decision.signal_quality_label}'
+        f'；{decision.trend_label}/{decision.position_label}/{decision.energy_label}'
+    )
+    return [(decision.action_priority, decision.action_label, msg)]
 
 
 # ── trades/ MD 讀寫 ───────────────────────────────────────────────────────────
@@ -282,23 +244,22 @@ def get_last_wave_score(content):
 
 
 def rec_label(total):
-    if total >= 5:   return '強力加碼'
-    if total >= 3:   return '加碼'
-    if total >= 1:   return '輕倉加碼/觀察'
-    if total >= -1:  return '持有不動'
-    if total >= -3:  return '部分減持'
-    return '強力減持'
+    if total >= 3:   return '總分偏強'
+    if total >= 1:   return '總分略強'
+    if total >= -1:  return '總分中性'
+    if total >= -3:  return '總分偏弱'
+    return '總分弱'
 
 
 WAVE_TABLE_HEADER = (
     '\n### Wave Score 歷史紀錄\n'
-    '| 日期 | 現價 | MA | GBM | 分位 | 物理 | 總分 | 建議 |\n'
+    '| 日期 | 現價 | MA | GBM | 分位 | 物理 | 總分 | 診斷 |\n'
     '|------|------|----|----|------|------|------|------|\n'
 )
 
 
-def make_wave_row(r, today_str):
-    rec = rec_label(r['total'])
+def make_wave_row(r, today_str, decision=None):
+    rec = decision.recommendation if decision else rec_label(r['total'])
     return (f'| {today_str} | {r["current"]:.1f} | {r["ma_s"]:+d} | '
             f'{r["gbm_s"]:+d} | {r["q_s"]:+d} | {r["phys_s"]:+d} | '
             f'**{r["total"]:+d}** | {rec} |')
@@ -357,6 +318,12 @@ def save_wave_cache(today_str, raw_results):
             'sell_low': float(r['sell_low']),
             'buy_high': float(r['buy_high']),
             'buy_low':  float(r['buy_low']),
+            'today_volume':  float(r['today_volume']) if r.get('today_volume') is not None else None,
+            'avg5_volume':   float(r['avg5_volume']) if r.get('avg5_volume') is not None else None,
+            'avg20_volume':  float(r['avg20_volume']) if r.get('avg20_volume') is not None else None,
+            'volume_ratio':  float(r['volume_ratio']) if r.get('volume_ratio') is not None else None,
+            'volume_ratio20': float(r['volume_ratio20']) if r.get('volume_ratio20') is not None else None,
+            'volume_label':  r.get('volume_label', '⚪ 量能未知'),
             'q_data':   {k: (float(v) if isinstance(v, (int, float, np.integer, np.floating)) else str(v))
                          for k, v in r['q_data'].items()},
         }
@@ -370,6 +337,12 @@ def restore_from_cache(code, cache):
     c['as_of'] = _date.fromisoformat(c['as_of'])
     c['mom']   = 0.0   # 物理引擎動量，僅 display 用，cache 不儲存
     c['code']  = code  # cache JSON 以 code 為 key，value 本身不含 code，補回
+    c.setdefault('today_volume', None)
+    c.setdefault('avg5_volume', None)
+    c.setdefault('avg20_volume', None)
+    c.setdefault('volume_ratio', None)
+    c.setdefault('volume_ratio20', None)
+    c.setdefault('volume_label', '⚪ 量能未知')
     return c
 
 
@@ -450,7 +423,7 @@ def update_trades_md(content, r, new_row, today_str, dy_str=None):
 # ── 戰術指南.md 更新 ──────────────────────────────────────────────────────────
 
 def build_wave_section(today_str, results, action_items):
-    """建立要寫入戰術指南.md 的 Wave Score 區塊"""
+    """建立要寫入戰術指南.md 的訊號診斷區塊"""
 
     p0 = [(c, n, r, a) for c, n, r, a in action_items if any(x[0] == 0 for x in a)]
     p1 = [(c, n, r, a) for c, n, r, a in action_items
@@ -468,31 +441,40 @@ def build_wave_section(today_str, results, action_items):
         if not items:
             return []
         out = [f'### {title}', '',
-               '| 代號 | 名稱 | 現價 | Wave | 訊號 |',
-               '|------|------|------|------|------|']
+               '| 代號 | 名稱 | 策略 | 現價 | Wave | 品質 | 政策建議 | 理由 |',
+               '|------|------|------|------|------|------|----------|------|']
         for c, n, r, a in items:
+            decision = r['decision']
             for pri, tag, msg in a:
                 if pri == priority:
-                    out.append(f'| {c} | {n} | {r["current"]:.1f} | {r["total"]:+d} | {tag}：{msg} |')
+                    out.append(
+                        f'| {c} | {n} | {decision.strategy_label} | {r["current"]:.1f} | '
+                        f'{r["total"]:+d} | {decision.signal_quality_label} | '
+                        f'{tag} | {decision.reason} |'
+                    )
         return out + ['']
 
-    lines += section('🔴 需即時處理（動能背離 / 波段破壞）', p0, 0)
-    lines += section('🟢 加碼機會', p1, 1)
+    lines += section('🔴 需處理（政策確認）', p0, 0)
+    lines += section('🟢 機會（需符合策略前提）', p1, 1)
     lines += section('🟡 觀察', p2, 2)
 
-    # Wave Score 總覽表
+    # 訊號診斷總覽表。Wave total 只保留為摘要，不作為決策欄位。
     lines += [
-        '### 📈 Wave Score 總覽',
+        '### 📈 訊號診斷總覽',
         '',
-        '| 代號 | 名稱 | 現價 | MA20 | MA | GBM | 分位 | 物理 | Wave | 建議 |',
-        '|------|------|------|------|----|----|------|------|------|------|',
+        '| 代號 | 名稱 | 策略 | 現價 | MA20 | 趨勢 | GBM | 位置 | 動能 | Wave摘要 | 品質 | 政策建議 |',
+        '|------|------|------|------|------|------|-----|------|------|----------|------|----------|',
     ]
     for r in sorted(results, key=lambda x: x['total'], reverse=True):
-        icon = '🟢' if r['total'] >= 1 else ('🔴' if r['total'] <= -2 else '🟡')
+        decision = r['decision']
         lines.append(
-            f'| {r["code"]} | {r["name"]} | {r["current"]:.1f} | {r["ma20"]:.1f} | '
-            f'{r["ma_s"]:+d} | {r["gbm_s"]:+d} | {r["q_s"]:+d} | {r["phys_s"]:+d} | '
-            f'{icon} **{r["total"]:+d}** | {r["rec"]} |'
+            f'| {r["code"]} | {r["name"]} | {decision.strategy_label} | '
+            f'{r["current"]:.1f} | {r["ma20"]:.1f} | '
+            f'{decision.trend_label} ({r["ma_s"]:+d}) | '
+            f'{decision.gbm_label} ({r["gbm_s"]:+d}) | '
+            f'{decision.position_label} ({r["q_s"]:+d}) | '
+            f'{decision.energy_label} ({r["phys_s"]:+d}) | '
+            f'**{r["total"]:+d}** | {decision.signal_quality_label} | {decision.recommendation} |'
         )
     lines.append('')
 
@@ -500,7 +482,7 @@ def build_wave_section(today_str, results, action_items):
 
 
 def update_tactical_md(today_str, results, action_items, dry_run=False):
-    """覆寫戰術指南.md 末尾的 Wave Score 區塊"""
+    """覆寫戰術指南.md 末尾的訊號診斷區塊"""
     if not os.path.exists(TACTICAL_MD):
         print(f'  ⚠️  找不到 {TACTICAL_MD}，跳過')
         return
@@ -510,8 +492,13 @@ def update_tactical_md(today_str, results, action_items, dry_run=False):
 
     new_section = build_wave_section(today_str, results, action_items)
 
-    # 找到舊區塊並截斷，或直接追加
+    # 找到舊區塊並截斷，或直接追加。兼容舊的「Wave Score 日更新」標題。
     marker_idx = content.find(WAVE_SECTION_MARKER)
+    if marker_idx < 0:
+        marker_idx = min(
+            [idx for idx in (content.find(m) for m in OLD_WAVE_SECTION_MARKERS) if idx >= 0],
+            default=-1,
+        )
     if marker_idx >= 0:
         # 保留 marker 之前的內容（含前一個 --- 分隔線）
         before = content[:marker_idx].rstrip()
@@ -525,26 +512,30 @@ def update_tactical_md(today_str, results, action_items, dry_run=False):
     if not dry_run:
         with open(TACTICAL_MD, 'w', encoding='utf-8') as f:
             f.write(updated)
-        print(f'  ✅ 戰術指南.md Wave Score 區塊已更新')
+        print(f'  ✅ 戰術指南.md 訊號診斷區塊已更新')
     else:
-        print(f'  [dry-run] 戰術指南.md 會新增 {len(new_section.splitlines())} 行 Wave Score 區塊')
+        print(f'  [dry-run] 戰術指南.md 會新增 {len(new_section.splitlines())} 行訊號診斷區塊')
 
 
 # ── 主程式 ────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description='每日 Wave Score 掃描')
+    parser = argparse.ArgumentParser(description='每日訊號診斷掃描')
     parser.add_argument('--dry-run', action='store_true', help='僅顯示，不寫入')
     parser.add_argument('--period', default='1y')
+    parser.add_argument('--date', '--review-date', dest='review_date', default=None,
+                        help='盤後歸屬日期（YYYY-MM-DD），補執行時使用')
     args = parser.parse_args()
 
-    today_str  = str(date.today())
+    today_str  = resolve_review_date(args.review_date)
     ticker_map = load_ticker_map()
     stocks     = find_growth_stocks()
     dy_map     = load_checkup_dy(today_str)
+    policies   = load_position_policies()
+    signal_state = load_signal_state()
 
     print(f'\n{"=" * 60}')
-    print(f'  Wave Score 掃描  [{today_str}]  共 {len(stocks)} 檔成長趨勢股')
+    print(f'  訊號診斷掃描  [{today_str}]  共 {len(stocks)} 檔納入標的')
     if args.dry_run:
         print('  ⚠️  Dry-run 模式，不寫入任何檔案')
     print(f'{"=" * 60}')
@@ -569,22 +560,36 @@ def main():
             print('❌ 資料取得失敗')
             failed.append(f'{code} {name}')
             continue
+        data_date = str(r.get('as_of', '')).split()[0]
+        if data_date and data_date != today_str:
+            print(f'⚠️ 資料日期 {data_date} != REVIEW_DATE {today_str}，跳過避免污染')
+            failed.append(f'{code} {name}(資料日期 {data_date})')
+            continue
         raw_results.append(r)
 
         with open(fpath, 'r', encoding='utf-8') as f:
             content = f.read()
 
         last  = get_last_wave_score(content)
-        rec   = rec_label(r['total'])
+        strategy_class = policies.get(code, {}).get('strategy_class')
+        decision = evaluate_signal(
+            r,
+            code=code,
+            strategy_class=strategy_class,
+            policies=policies,
+            trade_text=content,
+            history=recent_entries(signal_state, code),
+        )
+        rec   = decision.recommendation
         chg   = f' (from {last:+d})' if last is not None and last != r['total'] else ''
         print(f'Wave {r["total"]:+d}{chg}  {rec}')
 
-        new_row = make_wave_row(r, today_str)
-        actions = detect_actions(r, last)
+        new_row = make_wave_row(r, today_str, decision)
+        actions = detect_actions(r, decision)
         if actions:
-            action_items.append((code, name, r, actions))
+            action_items.append((code, name, {**r, 'decision': decision}, actions))
 
-        results.append({**r, 'name': name, 'last': last, 'rec': rec})
+        results.append({**r, 'name': name, 'last': last, 'rec': rec, 'decision': decision})
 
         if not args.dry_run:
             dy_str      = dy_map.get(code)
@@ -592,11 +597,22 @@ def main():
             if new_content != content:
                 with open(fpath, 'w', encoding='utf-8') as f:
                     f.write(new_content)
+            record_signal_state(
+                signal_state,
+                code=code,
+                as_of=str(r['as_of']),
+                source='wave_score_scan',
+                metrics=r,
+                decision=decision,
+            )
 
     # ── 儲存 cache（盤後固定，僅在非 dry-run 且非從 cache 讀入時儲存）──────────
     if not args.dry_run and not from_cache and raw_results:
         save_wave_cache(today_str, raw_results)
-        print(f'\n  💾 Wave Score 已快取至 {_cache_path(today_str)}')
+        print(f'\n  💾 訊號結果已快取至 {_cache_path(today_str)}')
+    if not args.dry_run:
+        save_signal_state(signal_state)
+        print(f'  💾 訊號狀態已更新至 journals/logs/signal_state.json')
 
     # ── 行動清單輸出（console）────────────────────────────────────────────────
     print(f'\n{"=" * 60}')

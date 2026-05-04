@@ -2,7 +2,7 @@
 wave_position.py — 波段位置分析器
 ====================================
 整合 GBM σ 位置、均線結構、分位數引擎、物理引擎，
-判斷股票目前在波段中的位置，並輸出加碼 / 持有 / 減持建議。
+判斷股票目前在波段中的位置，並輸出四維診斷與政策建議。
 
 評分系統（每層 ±2 分，總分 -8 ~ +8）：
   - 均線結構  : 多頭排列程度 (0 ~ +4)，基準 -2，貢獻 -2 ~ +2
@@ -10,13 +10,9 @@ wave_position.py — 波段位置分析器
   - 分位數    : 現價落在超漲/合理/買回/深回檔哪一區 (-2 ~ +3)
   - 物理引擎  : 動量、雷諾數、反重力、能量耗散 (-2 ~ +2)
 
-建議閾值：
-  ≥ +5 → 強力加碼
-  +3 ~ +4 → 加碼
-  +1 ~ +2 → 輕倉加碼 / 觀察
-  -1 ~ 0  → 持有不動
-  -3 ~ -2 → 部分減持
-  ≤ -4    → 強力減持
+注意：
+  Wave total 只作摘要，不直接產生加碼 / 減碼。
+  實際政策建議由 signal_policy.evaluate_signal() 依策略類型與四維診斷輸出。
 
 用法：
   python scripts/wave_position.py --code 2330
@@ -44,6 +40,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(__file__))
 from quantile_engine import compute_quantile_metrics
 from physics_engine import compute_physics, detect_antigravity, detect_energy_dissipation
+from signal_policy import compute_volume_metrics, evaluate_signal
 
 
 def fetch_ohlcv(ticker: str, period: str = '1y') -> pd.DataFrame | None:
@@ -108,13 +105,16 @@ def gbm_sigma_score(current: float, mu: float, sigma: float, days: int = 20) -> 
         return '極端貴（> 趨勢帶 +1σ）', -2
 
 
-def composite_recommendation(total: int) -> str:
-    if total >= 5:   return '🟢 強力加碼'
-    elif total >= 3: return '🟢 加碼'
-    elif total >= 1: return '🟡 輕倉加碼 / 觀察'
-    elif total >= -1: return '🟡 持有不動'
-    elif total >= -3: return '🔴 部分減持'
-    else:             return '🔴 強力減持'
+def wave_total_summary(total: int) -> str:
+    if total >= 3:
+        return '偏強摘要'
+    if total >= 1:
+        return '略強摘要'
+    if total >= -1:
+        return '中性摘要'
+    if total >= -3:
+        return '略弱摘要'
+    return '偏弱摘要'
 
 
 def wave_label(ma_score: int, q: dict, current: float) -> str:
@@ -220,13 +220,29 @@ def analyze(code: str, budget: float, period: str) -> dict:
 
     # ── 5. 綜合結論 ───────────────────────────────────
     total  = ma_score + gbm_score + q_score + phys_score
-    rec    = composite_recommendation(total)
+    metrics = {
+        'code': code,
+        'current': current,
+        'ma20': ma_data['ma20'],
+        'ma_s': ma_score,
+        'gbm_s': gbm_score,
+        'q_s': q_score,
+        'phys_s': phys_score,
+        'total': total,
+        **compute_volume_metrics(df),
+    }
+    decision = evaluate_signal(metrics, code=code)
+    summary = wave_total_summary(total)
     wlabel = wave_label(ma_raw, q, current)
 
     print(f'\n{"─" * 50}')
     print(f'  波段位置: {wlabel}')
     print(f'  綜合評分: MA({ma_score:+d}) GBM({gbm_score:+d}) 分位({q_score:+d}) 物理({phys_score:+d}) = {total:+d}')
-    print(f'  操作建議: {rec}')
+    print(f'  Wave摘要: {summary}')
+    print(f'  策略類型: {decision.strategy_label}')
+    print(f'  訊號品質: {decision.signal_quality_label}（持續 {decision.persistence_days} 日）')
+    print(f'  政策建議: {decision.recommendation}')
+    print(f'  理由: {decision.reason}')
 
     # ── 6. 預算試算（新建倉）─────────────────────────
     if budget > 0:
@@ -248,7 +264,11 @@ def analyze(code: str, budget: float, period: str) -> dict:
         'code': code, 'current': current,
         'ma_score': ma_score, 'gbm_score': gbm_score,
         'q_score': q_score, 'phys_score': phys_score,
-        'total': total, 'rec': rec, 'wave': wlabel,
+        'total': total,
+        'rec': decision.recommendation,
+        'quality': decision.signal_quality_label,
+        'strategy': decision.strategy_label,
+        'wave': wlabel,
     }
 
 
@@ -271,11 +291,11 @@ def main():
         print(f'\n{"=" * 60}')
         print('  多標的綜合比較')
         print(f'{"=" * 60}')
-        print(f'  {"代號":<8} {"現價":>8} {"MA":>4} {"GBM":>4} {"分位":>4} {"物理":>4} {"總分":>4}  建議')
-        print(f'  {"─" * 56}')
+        print(f'  {"代號":<8} {"現價":>8} {"MA":>4} {"GBM":>4} {"分位":>4} {"物理":>4} {"總分":>4}  品質 / 政策建議')
+        print(f'  {"─" * 72}')
         for r in results:
             print(f'  {r["code"]:<8} {r["current"]:>8.1f} {r["ma_score"]:>+4d} {r["gbm_score"]:>+4d} '
-                  f'{r["q_score"]:>+4d} {r["phys_score"]:>+4d} {r["total"]:>+4d}  {r["rec"]}')
+                  f'{r["q_score"]:>+4d} {r["phys_score"]:>+4d} {r["total"]:>+4d}  {r["quality"]} / {r["rec"]}')
         print()
 
 

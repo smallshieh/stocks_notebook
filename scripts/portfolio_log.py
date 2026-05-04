@@ -8,6 +8,7 @@ portfolio_log.py — 每日投資組合淨值記錄
 
 用法：
   python scripts/portfolio_log.py
+  python scripts/portfolio_log.py --date 2026-05-04
 """
 
 import os
@@ -20,6 +21,7 @@ import logging
 import datetime
 import yfinance as yf
 from curl_cffi import requests as creq
+from signal_policy import resolve_review_date
 
 warnings.filterwarnings('ignore')
 logging.disable(logging.CRITICAL)
@@ -28,7 +30,8 @@ _SESSION = creq.Session(verify=False, impersonate='chrome')
 
 TRADES_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'trades')
 HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'portfolio_history.csv')
-TODAY        = datetime.date.today().strftime("%Y-%m-%d")
+TODAY        = resolve_review_date()
+TODAY_DATE   = datetime.date.fromisoformat(TODAY)
 
 FIELDNAMES = ['date', 'total_value', 'total_cost', 'total_pnl', 'total_pnl_pct']
 
@@ -50,13 +53,12 @@ def _fetch_hist(code, period="5d", retries=3, delay=5):
 
 
 # ── 假日偵測 ──────────────────────────────────────────────────────────────────
-def is_trading_day():
-    """確認今天是否為台股交易日（以 0050 最新資料日期比對今天）。"""
+def latest_market_date():
+    """回傳 0050 最新市場資料日期；無法確認時回傳 None。"""
     hist = _fetch_hist("0050", period="5d")
     if hist is None or hist.empty:
-        return True   # 無法確認時，保守假設為交易日
-    last_date = hist.index[-1].date()
-    return last_date == datetime.date.today()
+        return None
+    return hist.index[-1].date()
 
 
 # ── 市場資料 ──────────────────────────────────────────────────────────────────
@@ -106,10 +108,15 @@ def append_record(record: dict):
 
 
 def _row_val(row: dict) -> float:
-    """相容新舊 CSV 格式，回傳市值欄位數值。"""
+    """相容新舊 CSV 格式，回傳市值欄位數值；NaN 回傳 0。"""
+    import math
     for k in ('total_value', 'total_portfolio_value', 'total_stock_value'):
         if k in row and row[k]:
-            return float(row[k])
+            try:
+                v = float(row[k])
+                return 0.0 if math.isnan(v) else v
+            except (ValueError, TypeError):
+                pass
     return 0.0
 
 
@@ -141,6 +148,14 @@ def run():
     files = [f for f in sorted(os.listdir(TRADES_DIR))
              if f.endswith('.md') and f != 'template.md']
 
+    market_date = latest_market_date()
+    if market_date is not None and market_date != TODAY_DATE:
+        print(
+            f"  市場資料日期為 {market_date.isoformat()}，與 REVIEW_DATE {TODAY} 不一致，"
+            "略過 portfolio_history.csv 寫入以避免日期污染。"
+        )
+        return
+
     holdings, errors = [], []
     print(f"解析 {len(files)} 個持股檔案...")
 
@@ -159,11 +174,6 @@ def run():
         parsed['market_value'] = parsed['shares'] * price
         parsed['book_cost']    = parsed['shares'] * parsed['cost']
         holdings.append(parsed)
-
-    # ── 假日偵測：非交易日不寫入 CSV ──────────────────────────────────────────
-    if not is_trading_day():
-        print(f"  今天（{TODAY}）非台股交易日，略過 CSV 記錄。")
-        return
 
     total_files = len(files)
     incomplete = len(errors) > 0

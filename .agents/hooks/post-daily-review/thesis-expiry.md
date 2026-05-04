@@ -34,3 +34,9 @@ alert_prefix: "⏰ 觀點到期追蹤"
 ```powershell
 .venv\Scripts\python.exe scripts/thesis_expiry.py
 ```
+
+### Agent 執行指令
+
+> **v2 結構化輸出**：此 hook 腳本現在輸出 JSON `{hook, status, severity, targets[{code, name, action, summary, detail}]}`。
+> Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
+> `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`

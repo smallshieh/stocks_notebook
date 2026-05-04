@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--alert-days", type=int, default=20,
                         help="剩餘交易日數低於此值時輸出警示（預設 20）")
     parser.add_argument("--quiet",      action="store_true", help="無警示時僅輸出一行摘要")
+    parser.add_argument("--json",       action="store_true", help="輸出結構化 JSON 供 hook_runner 使用")
     args = parser.parse_args()
 
     today      = date.today()
@@ -37,28 +38,69 @@ def main():
 
     # 已過期
     if deadline < today:
+        if args.json:
+            from hook_output import HookResult, HookTarget, output, today_str
+            result = HookResult(
+                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                severity="high",
+                targets=[HookTarget(code=args.code, name=args.name, action="p1_upgrade",
+                                    summary="硬死線已過期", detail={"deadline": args.deadline, "deadline_passed": True})],
+                lifecycle_event="auto_disable",
+            )
+            output(result)
+            sys.exit(0)
         print(f"⛔ {args.name} ({args.code}) 硬死線 {args.deadline} 已過期！請立即處理。")
         sys.exit(0)
 
     # 當日即硬死線
     if deadline == today:
+        if args.json:
+            from hook_output import HookResult, HookTarget, output, today_str
+            result = HookResult(
+                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                severity="high",
+                targets=[HookTarget(code=args.code, name=args.name, action="p1_upgrade",
+                                    summary="硬死線就是今天", detail={"deadline": args.deadline, "remaining_trading_days": 0})],
+                lifecycle_event="auto_disable",
+            )
+            output(result)
+            return
         print(f"🚨 {args.name} ({args.code}) 硬死線就是今天（{args.deadline}）！必須今日完成清倉。")
         sys.exit(0)
 
     # 低於警戒值
     if remaining <= alert_days:
+        if args.json:
+            from hook_output import HookResult, HookTarget, output, today_str
+            result = HookResult(
+                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                severity="high",
+                targets=[HookTarget(
+                    code=args.code, name=args.name, action="p1_upgrade",
+                    summary=f"硬死線剩 {remaining} 交易日（≤ {alert_days} 警戒）",
+                    detail={"deadline": args.deadline, "remaining_trading_days": remaining, "alert_days": alert_days},
+                )],
+            )
+            output(result)
+            return
         print(
             f"⚠️ {args.name} ({args.code}) 硬死線 {args.deadline}，"
             f"剩餘 {remaining} 個交易日（≤ {alert_days} 日警戒）— 已達門檻，建議評估執行時機。"
         )
     else:
+        if args.json:
+            from hook_output import HookResult, output, today_str
+            result = HookResult(
+                hook=f"deadline-{args.code}", timestamp=today_str(), status="ok", severity="low",
+            )
+            output(result)
+            return
         if not args.quiet:
             print(
                 f"✅ {args.name} ({args.code}) 硬死線 {args.deadline}，"
                 f"剩餘 {remaining} 個交易日，尚在安全範圍（警戒線 {alert_days} 日）。"
             )
         else:
-            # quiet 模式：無警示時靜默（輸出空行供 hook 記錄）
             print(f"{args.name} 硬死線剩餘 {remaining} 個交易日")
 
 if __name__ == "__main__":

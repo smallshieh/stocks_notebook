@@ -1,0 +1,38 @@
+{
+  "scan_date": "2026-05-04",
+  "alerts": [
+    {
+      "code": "2337",
+      "name": "旺宏",
+      "plan": "Watch",
+      "condition_label": "A",
+      "description": "月線回測 140~162",
+      "action": "買 30 股 @~150（~4,500 元）",
+      "wave_score": 2,
+      "price": 154.0,
+      "triggered_at": "2026-05-02"
+    },
+    {
+      "code": "8299",
+      "name": "群聯",
+      "plan": "N7",
+      "condition_label": "A",
+      "description": "季線回測 1836~1920 量縮企穩",
+      "action": "買 5 股 @~1,900（~9,500 元）",
+      "wave_score": 2,
+      "price": 1900.0,
+      "triggered_at": "2026-05-02"
+    },
+    {
+      "code": "2337",
+      "name": "旺宏",
+      "plan": "Watch",
+      "condition_label": "A",
+      "description": "月線回測 140~162",
+      "action": "買 30 股 @~150（~4,500 元）",
+      "wave_score": 3,
+      "price": 154.5,
+      "triggered_at": "2026-05-04"
+    }
+  ]
+}

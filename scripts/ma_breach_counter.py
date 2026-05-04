@@ -79,6 +79,7 @@ def run():
     parser.add_argument('--ma', type=int, default=20)
     parser.add_argument('--alert-days', type=int, default=3)
     parser.add_argument('--name', default='')
+    parser.add_argument('--json', action='store_true', help='Output structured JSON for hook_runner')
     args = parser.parse_args()
 
     today = datetime.date.today().strftime('%Y-%m-%d')
@@ -117,6 +118,48 @@ def run():
             status += f"\n⚠️ 已達 {args.alert_days} 日門檻 → 建議評估減碼"
     else:
         status += "，月線之上，無需動作"
+
+    if args.json:
+        from hook_output import HookResult, HookTarget, output, today_str
+
+        hook_name = f"ma-breach-{args.code}"
+        detail = {
+            "breach_days": entry["count"] if below else 0,
+            "ma_period": args.ma,
+            "ma20": round(ma, 2),
+            "current_price": round(price, 2),
+            "pct_from_ma": round(pct, 1),
+            "ma20_recovered": not below and entry["count"] == 0,
+            "streak_start": entry.get("streak_start", ""),
+        }
+        if below and entry["count"] >= args.alert_days:
+            targets = [HookTarget(
+                code=args.code, name=label, action="p1_observe",
+                summary=f"月線下方連續第 {entry['count']} 日",
+                detail=detail,
+            )]
+            result = HookResult(
+                hook=hook_name, timestamp=today_str(), status="alert",
+                severity="high", targets=targets,
+                lifecycle_event=None if below else "auto_disable",
+            )
+        elif not below:
+            result = HookResult(
+                hook=hook_name, timestamp=today_str(), status="ok",
+                severity="low", lifecycle_event="auto_disable",
+            )
+        else:
+            result = HookResult(
+                hook=hook_name, timestamp=today_str(), status="ok",
+                severity="low",
+                targets=[HookTarget(
+                    code=args.code, name=label, action="no_action",
+                    summary=f"月線下方第 {entry['count']} 日（未達 {args.alert_days} 日門檻）",
+                    detail=detail,
+                )],
+            )
+        output(result)
+        return
 
     print(f"{label} MA{args.ma} 觀察：{status}")
 

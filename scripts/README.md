@@ -12,7 +12,7 @@
 |------|------|---------|
 | **`market_state.py`** | **決策架構（來源A）** | **大盤狀態判斷（多頭/震盪/空頭）+ 建議資產配置** |
 | **`chip_check.py`** | **決策架構（來源B）** | **TWSE 三大法人籌碼抓取 + A/B/C/D 情境觸發核對** |
-| **`wave_score_scan.py`** | **決策架構（來源C）** | **全持倉 Wave Score 掃描（加碼/減碼/觀察訊號）** |
+| **`wave_score_scan.py`** | **決策架構（來源C）** | **全持倉訊號診斷掃描（Wave 分項 + 策略政策）** |
 | `stock_analyzer.py` | 資料查詢 | 即時股價、月線、停損預警 |
 | `physics_engine.py` | 物理模型 | 動量、動能、雷諾數診斷（模組）|
 | `quantile_engine.py` | 統計模型 | 回檔分位數決策（賣出/買回/暫停區）|
@@ -38,6 +38,13 @@
 ## 零、每日決策架構工具（daily-review 四源合議）
 
 > 這三個腳本是 `/daily-review` workflow 的核心數據來源，輸出「訊號」供 Agent 合議成整體操作方向。
+
+補執行盤後流程時，先指定歸屬日期，避免午夜後把前一交易日資料寫到隔日檔名：
+
+```powershell
+$env:REVIEW_DATE = "2026-05-04"
+.\scripts\daily_scan.bat 2026-05-04
+```
 
 ### `market_state.py` — 大盤狀態（來源 A）
 
@@ -79,14 +86,15 @@
 
 ---
 
-### `wave_score_scan.py` — Wave Score 全倉掃描（來源 C）
+### `wave_score_scan.py` — 訊號診斷全倉掃描（來源 C）
 
 ```powershell
 .venv\Scripts\python.exe scripts/wave_score_scan.py
+.venv\Scripts\python.exe scripts/wave_score_scan.py --date 2026-05-04
 ```
 
-**輸出位置**：`journals/logs/{TODAY}_scan.log`、覆寫戰術指南 `## Wave Score 日更新` 區塊  
-**訊號分類**：🔴 需即時處理（動能背離）/ 🟢 加碼機會 / 🟡 觀察
+**輸出位置**：`journals/logs/{REVIEW_DATE}_scan.log`、覆寫戰術指南 `## 訊號診斷日更新` 區塊  
+**訊號分類**：🔴 需即時處理 / 🟡 觀察 / ✅ 正常；Wave total 只作摘要排序，不直接產生加碼或減碼。
 
 ---
 
@@ -197,10 +205,10 @@
 ### `portfolio_report.py` — 盤後持倉健診
 
 ```powershell
-.venv\Scripts\python.exe scripts/portfolio_report.py
+.venv\Scripts\python.exe scripts/portfolio_report.py --date=2026-05-04
 ```
 
-**輸出**：`journals/持倉健診_{TODAY}.md`（停損預警、月線狀態、損益）
+**輸出**：`journals/持倉健診_{REVIEW_DATE}.md`（停損預警、月線狀態、損益）
 
 ### `portfolio_log.py` — 持倉快照存檔
 

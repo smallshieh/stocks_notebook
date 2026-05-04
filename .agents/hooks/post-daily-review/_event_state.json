@@ -1,93 +1,93 @@
 {
   "1215": {
-    "wave_score": 2,
+    "wave_score": 1,
     "mu_sign": 1,
-    "mu": 0.4406,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 0.3922,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "2301": {
-    "wave_score": -1,
+    "wave_score": 2,
     "mu_sign": 1,
-    "mu": 0.8243,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 0.7518,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "2317": {
     "wave_score": 1,
     "mu_sign": 1,
-    "mu": 0.6048,
+    "mu": 0.5834,
     "phys_s": 2,
-    "date": "2026-04-23"
+    "date": "2026-05-04"
   },
   "2330": {
     "wave_score": 4,
     "mu_sign": 1,
-    "mu": 0.9558,
+    "mu": 1.0016,
     "phys_s": 2,
-    "date": "2026-04-23"
+    "date": "2026-05-04"
   },
   "2382": {
     "wave_score": 0,
     "mu_sign": 1,
-    "mu": 0.4314,
+    "mu": 0.3795,
     "phys_s": 1,
-    "date": "2026-04-23"
+    "date": "2026-04-28"
   },
   "2408": {
-    "wave_score": 0,
+    "wave_score": 3,
     "mu_sign": 1,
-    "mu": 2.0446,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 2.3909,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "2449": {
-    "wave_score": 0,
+    "wave_score": 3,
     "mu_sign": 1,
-    "mu": 1.4996,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 1.6497,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "2454": {
-    "wave_score": 0,
+    "wave_score": 2,
     "mu_sign": 1,
-    "mu": 0.8136,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 1.0731,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "2546": {
-    "wave_score": -2,
+    "wave_score": -1,
     "mu_sign": 1,
-    "mu": 0.2274,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 0.183,
+    "phys_s": 2,
+    "date": "2026-05-04"
   },
   "3231": {
-    "wave_score": 0,
-    "mu_sign": 1,
-    "mu": 0.4151,
-    "phys_s": 1,
-    "date": "2026-04-23"
-  },
-  "5483": {
-    "wave_score": 0,
-    "mu_sign": 1,
-    "mu": 0.3688,
-    "phys_s": 1,
-    "date": "2026-04-23"
-  },
-  "6239": {
-    "wave_score": -2,
-    "mu_sign": 1,
-    "mu": 0.8513,
-    "phys_s": 1,
-    "date": "2026-04-23"
-  },
-  "6488": {
     "wave_score": 1,
     "mu_sign": 1,
-    "mu": 0.9435,
-    "phys_s": 1,
-    "date": "2026-04-23"
+    "mu": 0.4176,
+    "phys_s": 2,
+    "date": "2026-05-04"
+  },
+  "5483": {
+    "wave_score": 2,
+    "mu_sign": 1,
+    "mu": 0.4564,
+    "phys_s": 2,
+    "date": "2026-05-04"
+  },
+  "6239": {
+    "wave_score": 1,
+    "mu_sign": 1,
+    "mu": 1.0431,
+    "phys_s": 2,
+    "date": "2026-05-04"
+  },
+  "6488": {
+    "wave_score": 2,
+    "mu_sign": 1,
+    "mu": 1.1836,
+    "phys_s": 2,
+    "date": "2026-05-04"
   }
 }

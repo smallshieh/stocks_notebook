@@ -15,7 +15,7 @@ model_refresh.py — Layer 2 模型區塊重算
   3. ## 物理診斷   ← 動量 p、溫度 T、流體狀態 + 分位數區間子表
 
 資料來源：
-  優先：journals/logs/{TODAY}_wave_scores.json（wave cache，避免重抓）
+  優先：journals/logs/{REVIEW_DATE}_wave_scores.json（wave cache，避免重抓）
   回退：yfinance 現場抓取
 
 用法：
@@ -43,7 +43,7 @@ BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRADES_DIR = os.path.join(BASE_DIR, 'trades')
 LOGS_DIR   = os.path.join(BASE_DIR, 'journals', 'logs')
 
-TODAY = date.today().isoformat()
+TODAY = os.environ.get('REVIEW_DATE') or date.today().isoformat()
 
 
 # ── 資料抓取（與 wave_score_scan 相同邏輯）────────────────────────────────────
@@ -401,6 +401,7 @@ def main():
                     help='從今日 scan.log 讀取 EVENT 代號批次處理')
     ap.add_argument('--dry-run', action='store_true', help='只顯示，不寫入')
     ap.add_argument('--date', default=TODAY)
+    ap.add_argument('--json', action='store_true', help='輸出結構化 JSON 供 hook_runner 使用')
     args = ap.parse_args()
 
     today_str = args.date
@@ -422,6 +423,26 @@ def main():
         status  = '✅' if ok else '❌'
         print(f'  {status} {msg}')
         results.append(msg)
+
+    if args.json:
+        from hook_output import HookResult, HookTarget, output
+
+        targets = []
+        for r in results:
+            if '已更新' in r or '無異動' in r:
+                m = re.match(r'(\d+):', r)
+                code = m.group(1) if m else "*"
+                targets.append(HookTarget(
+                    code=code, name="model-refresh", action="no_action",
+                    summary=r[:80],
+                    detail={"full_msg": r},
+                ))
+        result = HookResult(
+            hook="model-refresh-on-event", timestamp=today_str,
+            status="ok", severity="low", targets=targets,
+        )
+        output(result)
+        return
 
     if results:
         print(f'\n共處理 {len(results)} 檔')

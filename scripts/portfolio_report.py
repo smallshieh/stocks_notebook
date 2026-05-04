@@ -10,10 +10,10 @@ import time
 import warnings
 from curl_cffi import requests as creq
 import yfinance as yf
+from signal_policy import resolve_review_date
 
 _CURL_SESSION = creq.Session(verify=False, impersonate='chrome')
 import pandas as pd
-import datetime
 
 warnings.filterwarnings('ignore')   # 抑制 yfinance 的 404 警告訊息
 
@@ -133,12 +133,15 @@ def analyze(code, cost):
         'dy': dy_str,
         'loss_pct': loss_pct,
         'alerts': alerts,
+        'as_of': hist.index[-1].date().isoformat(),
     }
 
 
 def scan():
+    today_str = resolve_review_date()
     rows_normal = []
     rows_alert  = []
+    date_mismatch = False
     bucket_values = {'Core': 0.0, 'Tactical': 0.0}  # 現價市值加總
     bucket_costs  = {'Core': 0.0, 'Tactical': 0.0}  # 成本基礎加總
     position_costs = {}  # {code: {'name', 'cost', 'bucket'}}  用於單檔預算檢查
@@ -173,6 +176,12 @@ def scan():
         if result is None:
             rows_alert.append(f"| {code} | {name} | ❌ 無法取得資料 | — | — | — |")
             continue
+        if result.get('as_of') != today_str:
+            date_mismatch = True
+            rows_alert.append(
+                f"| {code} | {name} | ⚠️ 資料日期 {result.get('as_of')} != REVIEW_DATE {today_str} | — | — | — |"
+            )
+            continue
 
         # 累計桶別市值 + 成本基礎
         if shares_match:
@@ -201,6 +210,10 @@ def scan():
             rows_alert.append(row)
         else:
             rows_normal.append(row)
+
+    if date_mismatch:
+        print(f"市場資料日期與 REVIEW_DATE {today_str} 不一致，略過健診與 history 寫入以避免日期污染。")
+        return
 
     # ── 資金桶佔比摘要（雙口徑：現價 + 成本）────────────────────────────────
     total_invested = sum(bucket_values.values())
@@ -384,11 +397,6 @@ def scan():
     for arg in sys.argv[1:]:
         if arg.startswith('--notes='):
             notes_arg = arg.split('=', 1)[1]
-
-    today_str = datetime.date.today().strftime("%Y-%m-%d")
-    for arg in sys.argv[1:]:
-        if arg.startswith('--date='):
-            today_str = arg.split('=', 1)[1]
 
     if os.path.exists(history_path):
         with open(history_path, 'r', encoding='utf-8') as f:

@@ -1,0 +1,323 @@
+# hooks.yaml — Hook Registry
+# Machine-readable definitions for the hook_runner.py execution engine.
+# Human documentation lives in the companion .md files.
+
+hooks:
+
+  # ── 月線跌破監控 ──────────────────────────────────────────────
+
+  ma-breach-1210:
+    name: "大成月線跌破計數"
+    script: ".venv/Scripts/python.exe scripts/ma_breach_counter.py --code 1210 --ma 20 --alert-days 3 --name 大成 --json"
+    targets: ["1210"]
+    strategy_class: "dividend_anchor"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      auto_disable_on: "ma20_recovered"
+      auto_reenable_on: "ma20_breached"
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "ma-breach-1210.md"
+
+  ma-breach-1215:
+    name: "卜蜂月線跌破計數"
+    script: ".venv/Scripts/python.exe scripts/ma_breach_counter.py --code 1215 --ma 20 --alert-days 3 --name 卜蜂 --json"
+    targets: ["1215"]
+    strategy_class: "dividend_anchor"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      auto_disable_on: "ma20_recovered"
+      auto_reenable_on: "ma20_breached"
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "ma-breach-1215.md"
+
+  ma-breach-2317:
+    name: "鴻海月線停損監控"
+    script: ".venv/Scripts/python.exe scripts/ma_breach_counter.py --code 2317 --ma 20 --alert-days 2 --name 鴻海 --json"
+    targets: ["2317"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      auto_disable_on: "ma20_recovered"
+      auto_reenable_on: "ma20_breached"
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "ma-breach-2317.md"
+
+  # ── 硬死線倒計時 ──────────────────────────────────────────────
+
+  deadline-2449:
+    name: "京元電時間停損倒計時"
+    script: ".venv/Scripts/python.exe scripts/deadline_counter.py --code 2449 --name 京元電 --deadline 2026-05-12 --alert-days 5 --json"
+    targets: ["2449"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "deadline_passed"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "deadline-2449.md"
+
+  deadline-8069:
+    name: "元太硬死線倒計時"
+    script: ".venv/Scripts/python.exe scripts/deadline_counter.py --code 8069 --name 元太 --deadline 2026-06-30 --alert-days 20 --json"
+    targets: ["8069"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 5
+    lifecycle:
+      permanent_disable_on: "deadline_passed"
+    retry:
+      max_consecutive_failures: 1
+      fallback_frequency_days: 1
+    doc: "deadline-8069.md"
+
+  # ── Wave 動能衰退監控 ──────────────────────────────────────────
+
+  wave-decay-2330:
+    name: "台積電減持監控"
+    script: ".venv/Scripts/python.exe scripts/wave_decay_alert.py --code 2330 --name 台積電 --alert-wave 0 --context 第一波減持待命 --json"
+    targets: ["2330"]
+    strategy_class: "growth_trend"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "wave-decay-2330.md"
+
+  wave-decay-6239:
+    name: "力成 Wave 衰退警示"
+    script: ".venv/Scripts/python.exe scripts/wave_decay_alert.py --code 6239 --name 力成 --alert-wave -2 --context 批次二賣波段60股 --json"
+    targets: ["6239"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "wave-decay-6239.md"
+
+  # ── 區間觀察（雙週頻率）───────────────────────────────────────
+
+  regime-6488:
+    name: "環球晶區間觀察"
+    script: ".venv/Scripts/python.exe scripts/regime_tracker.py --code 6488 --support 430 --quiet --json"
+    targets: ["6488"]
+    strategy_class: "reversion_rolling"
+    severity_default: "low"
+    trigger:
+      type: schedule
+      every_n_trading_days: 10
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 1
+      fallback_frequency_days: 1
+    doc: "regime-6488.md"
+
+  regime-8069:
+    name: "元太均值錨定觀察"
+    script: ".venv/Scripts/python.exe scripts/regime_tracker.py --code 8069 --support 140 --quiet --json"
+    targets: ["8069"]
+    strategy_class: "growth_trend"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 10
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 1
+      fallback_frequency_days: 1
+    doc: "regime-8069.md"
+
+  # ── 觀點到期 ────────────────────────────────────────────────────
+
+  thesis-expiry:
+    name: "前瞻觀點到期提醒"
+    script: ".venv/Scripts/python.exe scripts/thesis_expiry.py --quiet --json"
+    targets: ["*"]
+    strategy_class: null
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 5
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 1
+      fallback_frequency_days: 1
+    doc: "thesis-expiry.md"
+
+  # ── 全倉防守掃描 ────────────────────────────────────────────────
+
+  trades-defense-scan:
+    name: "持倉防守掃描（全倉）"
+    script: ".venv/Scripts/python.exe scripts/trades_defense_scan.py --json"
+    targets: ["*"]
+    strategy_class: null
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "trades-defense-scan.md"
+
+  # ── 候補股進場掃描 ──────────────────────────────────────────────
+
+  watchlist-entry-scan:
+    name: "Watchlist N計畫進場掃描"
+    script: ".venv/Scripts/python.exe scripts/watchlist_scan.py --json --from-log"
+    targets: ["*"]
+    strategy_class: null
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "watchlist-entry-scan.md"
+
+  # ── 事件驅動模型刷新 ────────────────────────────────────────────
+
+  model-refresh-on-event:
+    name: "事件驅動模型刷新"
+    script: ".venv/Scripts/python.exe scripts/model_refresh.py --from-events --json"
+    targets: ["*"]
+    strategy_class: null
+    severity_default: "low"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "model-refresh-on-event.md"
+
+  # ── 大成回補提醒 ────────────────────────────────────────────────
+
+  reentry-1210:
+    name: "大成回補提醒"
+    script: ".venv/Scripts/python.exe scripts/reentry_signal.py --code 1210 --name 大成 --armed-max-shares 1500 --min-wave 2 --reentry-shares 100 --json"
+    targets: ["1210"]
+    strategy_class: "dividend_anchor"
+    severity_default: "low"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "reentry-1210.md"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 以下為新增 hook（Phase D，待補腳本 --json 支援後啟用）
+  # ═══════════════════════════════════════════════════════════════
+
+  price-alert-2002:
+    name: "中鋼反彈賣點監控"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2002 --targets 20.5,21.0,21.5 --hard-stop 17.5 --json"
+    targets: ["2002"]
+    strategy_class: "dividend_anchor"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "price-alert-2002.md"
+
+  wave-decay-5483:
+    name: "中美晶區間監控"
+    script: ".venv/Scripts/python.exe scripts/wave_decay_alert.py --code 5483 --name 中美晶 --alert-wave 0 --context 回測買回區評估建倉 --json"
+    targets: ["5483"]
+    strategy_class: "reversion_rolling"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "wave-decay-5483.md"
+
+  ma-breach-2006:
+    name: "東和鋼月線跌破監控"
+    script: ".venv/Scripts/python.exe scripts/ma_breach_counter.py --code 2006 --ma 20 --alert-days 3 --name 東和鋼 --json"
+    targets: ["2006"]
+    strategy_class: "dividend_anchor"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      auto_disable_on: "ma20_recovered"
+      auto_reenable_on: "ma20_breached"
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "ma-breach-2006.md"
+
+  vol-spike-2454:
+    name: "聯發科爆量監控"
+    script: ".venv/Scripts/python.exe scripts/hook_vol_spike.py --code 2454 --name 聯發科 --vol-ratio 1.5 --json"
+    targets: ["2454"]
+    strategy_class: "growth_trend"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "vol-spike-2454.md"

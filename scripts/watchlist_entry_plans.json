@@ -1,0 +1,84 @@
+{
+  "_comment": "N 計畫機器可讀進場條件。watchlist_scan.py 每次執行自動核對。",
+  "_condition_types": {
+    "zone": "現價落在 [price_min, price_max] 區間內，同時 Wave >= wave_min",
+    "above_consec": "最近 consecutive 個交易日收盤均在 [price_threshold, price_range_max] 內，且現價仍在此範圍，同時 Wave >= wave_min"
+  },
+
+  "3037": {
+    "plan": "N4",
+    "name": "欣興",
+    "conditions": [
+      {
+        "label": "A",
+        "type": "zone",
+        "description": "月線回測 620~740 量縮",
+        "price_min": 620,
+        "price_max": 740,
+        "wave_min": 1,
+        "action": "買 10 股 @~680（~6,800 元）"
+      },
+      {
+        "label": "B",
+        "type": "above_consec",
+        "description": "站穩月線 677 連 2 日",
+        "price_threshold": 677,
+        "price_range_max": 755,
+        "consecutive": 2,
+        "wave_min": 1,
+        "action": "買 8 股 @~700（~5,600 元）"
+      }
+    ],
+    "stop_loss": 610,
+    "plan_stale_above": 800,
+    "plan_stale_note": "若現價持續 > 800 超過 5 日仍未進場，計畫應重新評估"
+  },
+
+  "8299": {
+    "plan": "N7",
+    "name": "群聯",
+    "conditions": [
+      {
+        "label": "A",
+        "type": "zone",
+        "description": "季線回測 1836~1920 量縮企穩",
+        "price_min": 1836,
+        "price_max": 1920,
+        "wave_min": 2,
+        "action": "買 5 股 @~1,900（~9,500 元）"
+      },
+      {
+        "label": "B",
+        "type": "above_consec",
+        "description": "站穩月線 1718 連 2 日",
+        "price_threshold": 1718,
+        "price_range_max": 1890,
+        "consecutive": 2,
+        "wave_min": 3,
+        "action": "買 5 股 @~1,720（~8,600 元）"
+      }
+    ],
+    "stop_loss": 1540,
+    "plan_stale_above": 2200,
+    "plan_stale_note": "若現價持續 > 2200 超過 5 日仍未進場，計畫應重新評估"
+  },
+
+  "2337": {
+    "plan": "Watch",
+    "name": "旺宏",
+    "conditions": [
+      {
+        "label": "A",
+        "type": "zone",
+        "description": "月線回測 140~162",
+        "price_min": 140,
+        "price_max": 162,
+        "wave_min": 1,
+        "action": "買 30 股 @~150（~4,500 元）"
+      }
+    ],
+    "stop_loss": 126,
+    "plan_stale_above": 185,
+    "plan_stale_note": "若現價持續 > 185 超過 5 日仍未進場，計畫應重新評估"
+  }
+}
