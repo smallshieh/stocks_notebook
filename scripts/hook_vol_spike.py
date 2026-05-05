@@ -11,6 +11,7 @@ Usage:
 import argparse
 import os
 import sys
+from datetime import date
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, os.path.dirname(__file__))
@@ -25,6 +26,10 @@ import yfinance as yf
 import pandas as pd
 
 SESSION = creq.Session(verify=False, impersonate='chrome')
+
+
+def review_date() -> str:
+    return os.environ.get('REVIEW_DATE') or date.today().isoformat()
 
 
 def resolve_ticker(code: str) -> str:
@@ -60,14 +65,15 @@ def main():
     args = parser.parse_args()
 
     label = args.name or args.code
+    as_of = review_date()
     df = get_ohlcv(args.code)
 
     if df is None or df.empty:
         msg = f"{label}：無法取得市場資料"
         if args.json:
-            from hook_output import HookResult, output, today_str
+            from hook_output import HookResult, output
             result = HookResult(
-                hook=f"vol-spike-{args.code}", timestamp=today_str(),
+                hook=f"vol-spike-{args.code}", timestamp=as_of,
                 status="error", severity="high", error_message=msg,
             )
             output(result)
@@ -115,13 +121,13 @@ def main():
         action = "no_action"
 
     if args.json:
-        from hook_output import HookResult, HookTarget, output, today_str
+        from hook_output import HookResult, HookTarget, output
         targets = [HookTarget(
             code=args.code, name=label, action=action,
             summary=summary, detail=detail,
         )] if status != "ok" else []
         result = HookResult(
-            hook=f"vol-spike-{args.code}", timestamp=today_str(),
+            hook=f"vol-spike-{args.code}", timestamp=as_of,
             status=status, severity=severity, targets=targets,
         )
         output(result)

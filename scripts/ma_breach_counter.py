@@ -32,6 +32,10 @@ STOCKS_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sto
 _SESSION = creq.Session(verify=False, impersonate='chrome')
 
 
+def resolve_review_date() -> str:
+    return os.environ.get('REVIEW_DATE') or datetime.date.today().strftime('%Y-%m-%d')
+
+
 def resolve_ticker(code: str) -> str:
     """從 stocks.csv 取得完整 ticker（含交易所 suffix）。找不到則回傳空字串。"""
     try:
@@ -82,7 +86,7 @@ def run():
     parser.add_argument('--json', action='store_true', help='Output structured JSON for hook_runner')
     args = parser.parse_args()
 
-    today = datetime.date.today().strftime('%Y-%m-%d')
+    today = resolve_review_date()
     label = args.name or args.code
 
     price, ma = get_price_and_ma(args.code, args.ma)
@@ -120,7 +124,7 @@ def run():
         status += "，月線之上，無需動作"
 
     if args.json:
-        from hook_output import HookResult, HookTarget, output, today_str
+        from hook_output import HookResult, HookTarget, output
 
         hook_name = f"ma-breach-{args.code}"
         detail = {
@@ -139,18 +143,18 @@ def run():
                 detail=detail,
             )]
             result = HookResult(
-                hook=hook_name, timestamp=today_str(), status="alert",
+                hook=hook_name, timestamp=today, status="alert",
                 severity="high", targets=targets,
                 lifecycle_event=None if below else "auto_disable",
             )
         elif not below:
             result = HookResult(
-                hook=hook_name, timestamp=today_str(), status="ok",
+                hook=hook_name, timestamp=today, status="ok",
                 severity="low", lifecycle_event="auto_disable",
             )
         else:
             result = HookResult(
-                hook=hook_name, timestamp=today_str(), status="ok",
+                hook=hook_name, timestamp=today, status="ok",
                 severity="low",
                 targets=[HookTarget(
                     code=args.code, name=label, action="no_action",

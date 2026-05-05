@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -33,7 +34,7 @@ SCRIPT_TIMEOUT_SECONDS = 120
 
 
 def today_str() -> str:
-    return str(date.today())
+    return os.environ.get("REVIEW_DATE") or str(date.today())
 
 
 def trading_days_between(from_date: str, to_date: str) -> int:
@@ -128,10 +129,24 @@ def is_hook_due(hook_name: str, hook_def: dict, state: dict, as_of: str) -> bool
     return td >= effective_n
 
 
-def execute_hook_script(script_cmd: str, timeout: int = SCRIPT_TIMEOUT_SECONDS) -> tuple[int, str, str]:
+def should_check_disabled_hook(hook_name: str, hook_def: dict, state: dict) -> bool:
+    """Allow auto-reenable hooks to run a lightweight check while disabled."""
+    hook_state = state["hooks"].get(hook_name, {})
+    if hook_state.get("status") != "disabled":
+        return False
+
+    lifecycle = hook_def.get("lifecycle", {})
+    if lifecycle.get("auto_reenable_on") != "ma20_breached":
+        return False
+
+    reason = hook_state.get("disabled_reason", "")
+    return reason.startswith("ma20_") or reason == "auto_disable from script output"
+
+
+def execute_hook_script(script_cmd: str, as_of: str, timeout: int = SCRIPT_TIMEOUT_SECONDS) -> tuple[int, str, str]:
     """Run a hook script subprocess. Returns (exit_code, stdout, stderr)."""
     # Parse shell command into args list to avoid UNC path issue with cmd.exe
-    parts = script_cmd.strip().split()
+    parts = [p.strip('"') for p in shlex.split(script_cmd.strip(), posix=False)]
     if not parts:
         return -1, "", "empty command"
 
@@ -145,12 +160,15 @@ def execute_hook_script(script_cmd: str, timeout: int = SCRIPT_TIMEOUT_SECONDS) 
             resolved_parts.append(p)
 
     try:
+        env = os.environ.copy()
+        env["REVIEW_DATE"] = as_of
         result = subprocess.run(
             resolved_parts,
             capture_output=True,
             text=True,
             timeout=timeout,
             cwd=BASE_DIR,
+            env=env,
             encoding="utf-8",
             errors="replace",
         )
@@ -172,6 +190,25 @@ def parse_hook_output(stdout: str) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             continue
     return None
+
+
+def summarize_hook_state(hook_state: dict[str, Any]) -> dict[str, Any]:
+    """Keep only stable fields for lifecycle change comparisons."""
+    return {
+        "status": hook_state.get("status", "active"),
+        "disabled_reason": hook_state.get("disabled_reason"),
+    }
+
+
+def describe_lifecycle_change(hook_name: str, before: dict[str, Any], after: dict[str, Any]) -> str | None:
+    """Return a concise lifecycle event description when status/reason changed."""
+    if before == after:
+        return None
+    status = after.get("status", "active")
+    reason = after.get("disabled_reason")
+    if reason:
+        return f"[status -> {status}] {hook_name}: {reason}"
+    return f"[status -> {status}] {hook_name}"
 
 
 def apply_lifecycle_event(hook_name: str, result: dict | None, hook_def: dict, state: dict) -> None:
@@ -210,7 +247,10 @@ def apply_lifecycle_event(hook_name: str, result: dict | None, hook_def: dict, s
             if detail.get("breach_days", 0) >= 1:
                 stock_state["ma20_status"] = "below"
                 stock_state["ma20_breach_days"] = detail.get("breach_days", 0)
-            if hook_state.get("status") == "disabled" and hook_state.get("disabled_reason", "").startswith("ma20_"):
+            reason = hook_state.get("disabled_reason", "")
+            if hook_state.get("status") == "disabled" and (
+                reason.startswith("ma20_") or reason == "auto_disable from script output"
+            ):
                 hook_state["status"] = "active"
                 hook_state.pop("disabled_reason", None)
 
@@ -239,6 +279,52 @@ def _count_ma_below_targets(result: dict | None) -> int:
         1 for t in result.get("targets", [])
         if t.get("detail", {}).get("current_price", 0) < t.get("detail", {}).get("ma20", 0)
     )
+
+
+def load_existing_log(path: str) -> dict[str, Any] | None:
+    """Load today's hook log so reruns do not erase earlier same-day results."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def merge_existing_log(
+    existing: dict[str, Any] | None,
+    triggered: list[dict[str, Any]],
+    failed: list[dict[str, Any]],
+    skipped: list[str],
+    lifecycle_events: list[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str], list[str]]:
+    """Preserve earlier same-day hook results when a rerun only skips them."""
+    if not existing:
+        return triggered, failed, skipped, lifecycle_events
+
+    current_hooks = {r.get("hook") for r in triggered} | {f.get("hook") for f in failed}
+
+    merged_triggered = [
+        r for r in existing.get("triggered", [])
+        if isinstance(r, dict) and r.get("hook") not in current_hooks
+    ] + triggered
+
+    merged_failed = [
+        f for f in existing.get("failed", [])
+        if isinstance(f, dict) and f.get("hook") not in current_hooks
+    ] + failed
+
+    handled_hooks = {r.get("hook") for r in merged_triggered} | {f.get("hook") for f in merged_failed}
+    merged_skipped = [h for h in skipped if h not in handled_hooks]
+
+    merged_lifecycle = list(existing.get("lifecycle_events", []))
+    for event in lifecycle_events:
+        if event not in merged_lifecycle:
+            merged_lifecycle.append(event)
+
+    return merged_triggered, merged_failed, merged_skipped, merged_lifecycle
 
 
 def format_results_summary(
@@ -317,7 +403,9 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
     all_targets: dict[str, list[dict]] = {}
 
     for hook_name, hook_def in registry.items():
-        if not is_hook_due(hook_name, hook_def, state, as_of):
+        due = is_hook_due(hook_name, hook_def, state, as_of)
+        reenable_check = should_check_disabled_hook(hook_name, hook_def, state)
+        if not due and not reenable_check:
             skipped_hooks.append(hook_name)
             continue
 
@@ -333,12 +421,15 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
             })
             continue
 
+        if reenable_check and not due:
+            print(f"  🔁 {hook_name}: disabled, checking auto-reenable condition")
+
         script = hook_def.get("script", "")
         if not script:
             failed_results.append({"hook": hook_name, "error": "no script defined"})
             continue
 
-        exit_code, stdout_text, stderr_text = execute_hook_script(script)
+        exit_code, stdout_text, stderr_text = execute_hook_script(script, as_of)
         hook_state = state["hooks"].setdefault(hook_name, {})
 
         if exit_code != 0:
@@ -366,13 +457,15 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
             "summary": "; ".join(t.get("summary", "") for t in parsed.get("targets", [])),
         }
 
+        lifecycle_before = summarize_hook_state(hook_state)
         apply_lifecycle_event(hook_name, parsed, hook_def, state)
+        lifecycle_after = summarize_hook_state(state["hooks"][hook_name])
         lc = parsed.get("lifecycle_event")
         if lc:
             lifecycle_events.append(f"[{lc}] {hook_name}")
-        new_status = state["hooks"][hook_name].get("status")
-        if new_status and new_status != hook_state.get("status", "active"):
-            lifecycle_events.append(f"[status → {new_status}] {hook_name}")
+        lifecycle_change = describe_lifecycle_change(hook_name, lifecycle_before, lifecycle_after)
+        if lifecycle_change:
+            lifecycle_events.append(lifecycle_change)
 
         triggered_results.append(parsed)
 
@@ -385,10 +478,16 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
 
         save_hooks_state(state)
 
-    summary = format_results_summary(triggered_results, failed_results, skipped_hooks, lifecycle_events, as_of)
-
     output_log_path = os.path.join(LOGS_DIR, f"{as_of}_hooks.json")
     os.makedirs(LOGS_DIR, exist_ok=True)
+    if not dry_run:
+        existing_log = load_existing_log(output_log_path)
+        triggered_results, failed_results, skipped_hooks, lifecycle_events = merge_existing_log(
+            existing_log, triggered_results, failed_results, skipped_hooks, lifecycle_events
+        )
+
+    summary = format_results_summary(triggered_results, failed_results, skipped_hooks, lifecycle_events, as_of)
+
     log_data = {
         "date": as_of,
         "dry_run": dry_run,
@@ -398,8 +497,9 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
         "lifecycle_events": lifecycle_events,
         "summary_md": summary,
     }
-    with open(output_log_path, "w", encoding="utf-8") as f:
-        json.dump(log_data, f, ensure_ascii=False, indent=2)
+    if not dry_run:
+        with open(output_log_path, "w", encoding="utf-8") as f:
+            json.dump(log_data, f, ensure_ascii=False, indent=2)
 
     return {
         "as_of": as_of,
@@ -414,7 +514,7 @@ def run_hooks(as_of: str | None = None, dry_run: bool = False) -> dict[str, Any]
         ],
         "lifecycle_events": lifecycle_events,
         "summary_md": summary,
-        "output_log": output_log_path,
+        "output_log": output_log_path if not dry_run else None,
     }
 
 

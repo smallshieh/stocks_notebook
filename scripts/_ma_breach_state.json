@@ -11,12 +11,17 @@
   },
   "2317_ma20": {
     "count": 0,
-    "last_date": "2026-05-04",
+    "last_date": "2026-05-05",
     "streak_start": ""
   },
   "2006_ma20": {
     "count": 1,
     "last_date": "2026-05-04",
     "streak_start": "2026-05-04"
+  },
+  "2301_ma20": {
+    "count": 0,
+    "last_date": "2026-05-05",
+    "streak_start": ""
   }
 }

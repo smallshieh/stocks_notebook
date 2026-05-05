@@ -57,7 +57,7 @@ def run():
     parser.add_argument('--json', action='store_true', help='Output structured JSON for hook_runner')
     args = parser.parse_args()
 
-    today = datetime.date.today().strftime('%Y-%m-%d')
+    today = os.environ.get('REVIEW_DATE') or datetime.date.today().strftime('%Y-%m-%d')
     label = args.name or args.code
 
     trade_path = find_trade_file(args.code)

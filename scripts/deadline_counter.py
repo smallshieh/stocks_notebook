@@ -7,6 +7,7 @@ deadline_counter.py — 硬死線倒計時工具
 """
 
 import argparse
+import os
 import sys
 from datetime import date, timedelta
 
@@ -31,7 +32,7 @@ def main():
     parser.add_argument("--json",       action="store_true", help="輸出結構化 JSON 供 hook_runner 使用")
     args = parser.parse_args()
 
-    today      = date.today()
+    today      = date.fromisoformat(os.environ.get("REVIEW_DATE") or date.today().isoformat())
     deadline   = date.fromisoformat(args.deadline)
     remaining  = count_trading_days(today, deadline)
     alert_days = args.alert_days
@@ -39,9 +40,9 @@ def main():
     # 已過期
     if deadline < today:
         if args.json:
-            from hook_output import HookResult, HookTarget, output, today_str
+            from hook_output import HookResult, HookTarget, output
             result = HookResult(
-                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                hook=f"deadline-{args.code}", timestamp=today.isoformat(), status="alert",
                 severity="high",
                 targets=[HookTarget(code=args.code, name=args.name, action="p1_upgrade",
                                     summary="硬死線已過期", detail={"deadline": args.deadline, "deadline_passed": True})],
@@ -55,9 +56,9 @@ def main():
     # 當日即硬死線
     if deadline == today:
         if args.json:
-            from hook_output import HookResult, HookTarget, output, today_str
+            from hook_output import HookResult, HookTarget, output
             result = HookResult(
-                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                hook=f"deadline-{args.code}", timestamp=today.isoformat(), status="alert",
                 severity="high",
                 targets=[HookTarget(code=args.code, name=args.name, action="p1_upgrade",
                                     summary="硬死線就是今天", detail={"deadline": args.deadline, "remaining_trading_days": 0})],
@@ -71,9 +72,9 @@ def main():
     # 低於警戒值
     if remaining <= alert_days:
         if args.json:
-            from hook_output import HookResult, HookTarget, output, today_str
+            from hook_output import HookResult, HookTarget, output
             result = HookResult(
-                hook=f"deadline-{args.code}", timestamp=today_str(), status="alert",
+                hook=f"deadline-{args.code}", timestamp=today.isoformat(), status="alert",
                 severity="high",
                 targets=[HookTarget(
                     code=args.code, name=args.name, action="p1_upgrade",
@@ -89,9 +90,9 @@ def main():
         )
     else:
         if args.json:
-            from hook_output import HookResult, output, today_str
+            from hook_output import HookResult, output
             result = HookResult(
-                hook=f"deadline-{args.code}", timestamp=today_str(), status="ok", severity="low",
+                hook=f"deadline-{args.code}", timestamp=today.isoformat(), status="ok", severity="low",
             )
             output(result)
             return
