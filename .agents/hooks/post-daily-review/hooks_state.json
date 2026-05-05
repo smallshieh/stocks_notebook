@@ -80,7 +80,7 @@
       }
     },
     "deadline-2449": {
-      "status": "active",
+      "status": "disabled",
       "last_run": "2026-05-05",
       "run_count": 4,
       "consecutive_failures": 0,
@@ -88,7 +88,8 @@
         "status": "ok",
         "severity": "low",
         "summary": ""
-      }
+      },
+      "disabled_reason": "突破條件已兌現（05-05 現價 354 > 300），時間停損不再適用"
     },
     "ma-breach-2317": {
       "status": "disabled",
