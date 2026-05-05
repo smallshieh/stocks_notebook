@@ -60,6 +60,24 @@ hooks:
       fallback_frequency_days: 1
     doc: "ma-breach-2317.md"
 
+  ma-breach-2301:
+    name: "光寶科月線跌破監控"
+    script: ".venv/Scripts/python.exe scripts/ma_breach_counter.py --code 2301 --ma 20 --alert-days 2 --name 光寶科 --json"
+    targets: ["2301"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      auto_disable_on: "ma20_recovered"
+      auto_reenable_on: "ma20_breached"
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "ma-breach-2301.md"
+
   # ── 硬死線倒計時 ──────────────────────────────────────────────
 
   deadline-2449:
@@ -94,6 +112,22 @@ hooks:
       fallback_frequency_days: 1
     doc: "deadline-8069.md"
 
+  deadline-2337:
+    name: "旺宏時間停損倒計時"
+    script: ".venv/Scripts/python.exe scripts/deadline_counter.py --code 2337 --name 旺宏 --deadline 2026-05-12 --alert-days 3 --json"
+    targets: ["2337"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "deadline_passed"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "deadline-2337.md"
+
   # ── Wave 動能衰退監控 ──────────────────────────────────────────
 
   wave-decay-2330:
@@ -127,6 +161,22 @@ hooks:
       max_consecutive_failures: 2
       fallback_frequency_days: 1
     doc: "wave-decay-6239.md"
+
+  wave-decay-2337:
+    name: "旺宏 Wave 衰退警示"
+    script: ".venv/Scripts/python.exe scripts/wave_decay_alert.py --code 2337 --name 旺宏 --alert-wave 0 --context 動能波段Wave<=0全出 --json"
+    targets: ["2337"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "wave-decay-2337.md"
 
   # ── 區間觀察（雙週頻率）───────────────────────────────────────
 
@@ -257,8 +307,8 @@ hooks:
   # ═══════════════════════════════════════════════════════════════
 
   price-alert-2002:
-    name: "中鋼反彈賣點監控"
-    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2002 --targets 20.5,21.0,21.5 --hard-stop 17.5 --json"
+    name: "中鋼底倉硬止損監控"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2002 --name 中鋼 --hard-stop 17.5 --json"
     targets: ["2002"]
     strategy_class: "dividend_anchor"
     severity_default: "high"
@@ -321,3 +371,19 @@ hooks:
       max_consecutive_failures: 2
       fallback_frequency_days: 1
     doc: "vol-spike-2454.md"
+
+  price-alert-2317:
+    name: "鴻海移動停利監控"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2317 --name 鴻海 --targets 215.0 --hard-stop 190.0 --json"
+    targets: ["2317"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "price-alert-2317.md"

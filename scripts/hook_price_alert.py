@@ -11,6 +11,7 @@ Usage:
 import argparse
 import os
 import sys
+from datetime import date
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, os.path.dirname(__file__))
@@ -24,6 +25,10 @@ from curl_cffi import requests as creq
 import yfinance as yf
 
 SESSION = creq.Session(verify=False, impersonate='chrome')
+
+
+def review_date() -> str:
+    return os.environ.get('REVIEW_DATE') or date.today().isoformat()
 
 
 def resolve_ticker(code: str) -> str:
@@ -53,24 +58,28 @@ def get_price(code: str) -> float | None:
 def main():
     parser = argparse.ArgumentParser(description='Price target and hard-stop alert')
     parser.add_argument('--code', required=True)
-    parser.add_argument('--targets', required=True, help='Comma-separated price targets')
+    parser.add_argument('--name', default=None, help='Display name (default: code)')
+    parser.add_argument('--targets', default='', help='Comma-separated price targets (optional)')
     parser.add_argument('--hard-stop', type=float, required=True)
     parser.add_argument('--json', action='store_true', help='Output structured JSON for hook_runner')
     args = parser.parse_args()
 
     try:
-        targets = [float(x.strip()) for x in args.targets.split(',')]
+        targets = [float(x.strip()) for x in args.targets.split(',') if x.strip()] if args.targets else []
     except ValueError:
         print(f"ERROR: invalid targets format: {args.targets}", file=sys.stderr)
         sys.exit(1)
 
+    name = args.name or args.code
+    label = f"{name} ({args.code})"
     price = get_price(args.code)
+    as_of = review_date()
     if price is None:
-        msg = f"中鋼 ({args.code})：無法取得市場資料"
+        msg = f"{label}：無法取得市場資料"
         if args.json:
-            from hook_output import HookResult, output, today_str
+            from hook_output import HookResult, output
             result = HookResult(
-                hook=f"price-alert-{args.code}", timestamp=today_str(),
+                hook=f"price-alert-{args.code}", timestamp=as_of,
                 status="error", severity="high", error_message=msg,
             )
             output(result)
@@ -93,7 +102,6 @@ def main():
     hard_stop_gap = (price / args.hard_stop - 1) * 100
     near_hard_stop = 0 <= hard_stop_gap < 5
 
-    label = f"中鋼 ({args.code})"
     detail = {
         "current_price": round(price, 2),
         "targets": targets,
@@ -104,8 +112,8 @@ def main():
         "near_hard_stop": near_hard_stop,
     }
 
-    if price >= min(targets):
-        summary = f"現價 {price:.2f} ≥ {closest}，反彈賣點觸發"
+    if targets and price >= min(targets):
+        summary = f"現價 {price:.2f} ≥ {closest}，目標觸發"
         severity = "high"
         status = "alert"
         action = "p1_upgrade"
@@ -114,33 +122,37 @@ def main():
         severity = "high"
         status = "alert"
         action = "p1_upgrade"
-    elif closest_gap < 5:
+    elif targets and closest_gap < 5:
         summary = f"距最近目標 {closest} 僅 {closest_gap:.1f}%"
         severity = "medium"
         status = "warning"
         action = "p2_observe"
     else:
-        summary = f"現價 {price:.2f}，最近目標 {closest}（距 {closest_gap:.1f}%）"
+        parts = []
+        if targets and closest is not None:
+            parts.append(f"最近目標 {closest}（距 {closest_gap:.1f}%）")
+        parts.append(f"硬止損 {args.hard_stop}（距 {hard_stop_gap:.1f}%）")
+        summary = f"現價 {price:.2f}，" + "，".join(parts)
         severity = "low"
         status = "ok"
         action = "no_action"
 
     if args.json:
-        from hook_output import HookResult, HookTarget, output, today_str
+        from hook_output import HookResult, HookTarget, output
         targets_list = [HookTarget(
             code=args.code, name=label, action=action,
             summary=summary, detail=detail,
         )] if status != "ok" else []
         result = HookResult(
-            hook=f"price-alert-{args.code}", timestamp=today_str(),
+            hook=f"price-alert-{args.code}", timestamp=as_of,
             status=status, severity=severity, targets=targets_list,
         )
         output(result)
         return
 
     print(f"{label}：{summary}")
-    if price >= min(targets):
-        print(f"  賣出 {1000 if closest <= 20.5 else (1000 if closest <= 21.0 else 1100)} 股 @市價")
+    if targets and price >= min(targets):
+        print(f"  目標觸發：{closest}")
 
 
 if __name__ == '__main__':
