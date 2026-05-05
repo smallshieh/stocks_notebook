@@ -403,3 +403,69 @@ hooks:
       max_consecutive_failures: 2
       fallback_frequency_days: 1
     doc: "price-alert-2317.md"
+
+  tactical-guide-stale:
+    name: "戰術指南過期條件檢查"
+    script: ".venv/Scripts/python.exe scripts/check_tactical_guide_stale.py --json"
+    targets: []
+    strategy_class: null
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: null
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "tactical-guide-stale.md"
+
+  # ── 候補股價格監控 ──────────────────────────────────────────────
+
+  price-alert-2382:
+    name: "廣達月線回測進場監控"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2382 --name 廣達 --hard-stop 304 --json"
+    targets: ["2382"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_entered"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "price-alert-2382.md"
+
+  price-alert-3017:
+    name: "奇鋐月線回測放棄線監控"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 3017 --name 奇鋐 --targets 2535 --hard-stop 2405 --json"
+    targets: ["3017"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_entered"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "price-alert-3017.md"
+
+  vol-contract-3017:
+    name: "奇鋐量縮承接監控"
+    script: ".venv/Scripts/python.exe scripts/hook_vol_spike.py --code 3017 --name 奇鋐 --vol-contract 0.8 --json"
+    targets: ["3017"]
+    strategy_class: "growth_trend"
+    severity_default: "high"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_entered"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "vol-contract-3017.md"
