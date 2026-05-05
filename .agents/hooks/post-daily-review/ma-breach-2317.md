@@ -3,7 +3,7 @@ name: 鴻海月線停損監控
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/ma_breach_counter.py --code 2317 --ma 20 --alert-days 2 --name 鴻海
+script: .venv/Scripts/python.exe scripts/ma_breach_counter.py --code 2317 --ma 20 --alert-days 2 --name 鴻海 --json
 output_to: journal
 alert_prefix: "⚠️ 鴻海月線停損"
 ---
@@ -27,13 +27,13 @@ alert_prefix: "⚠️ 鴻海月線停損"
 > Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
 > `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
 
-當輸出包含「已達 2 日門檻」時：
+當 `journals/logs/{REVIEW_DATE}_hooks.json` 中此 hook 為 `status: alert` 且 target `action: p1_observe` 時：
 1. 在戰術指南 `## P1` 新增（或更新）鴻海條目：動作填「L2 停損觸發：追賣 50 股波段倉 @市價」
 2. 在盤後日誌 `## 待辦事項` 加入 `- [ ] 【2317 鴻海】L2 停損觸發，追賣波段 50 股`
 3. 在日誌標記「→ 已更新 P1」
 
-當輸出包含「月線之上」（計數歸零）時：
+當此 hook 產生 `lifecycle_event: auto_disable` 或 hooks_state 顯示月線收復時：
 1. 若已在 P1，確認停損已解除後移回 P2
-2. 加底線前綴暫停此 hook（`_ma-breach-2317.md`）
+2. 確認 `hooks_state.json` 中此 hook 已由 runner 自動轉為 disabled
 
-**預計存續**：短期，待鴻海月線情況明朗後暫停。
+**預計存續**：短期，待鴻海月線情況明朗後由 `hooks_state.json` lifecycle 自動停用；再次跌破時由 runner 自動 re-enable。

@@ -3,7 +3,7 @@ name: 大成回補提醒
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/reentry_signal.py --code 1210 --name 大成 --armed-max-shares 1500 --min-wave 2 --reentry-shares 100
+script: .venv/Scripts/python.exe scripts/reentry_signal.py --code 1210 --name 大成 --armed-max-shares 1500 --min-wave 2 --reentry-shares 100 --json
 output_to: journal
 alert_prefix: "🔁 大成回補提醒"
 ---

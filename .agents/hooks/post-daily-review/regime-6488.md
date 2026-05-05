@@ -3,7 +3,7 @@ name: 環球晶區間觀察
 trigger:
   type: every_n_trading_days
   n: 10
-script: .venv/Scripts/python.exe scripts/regime_tracker.py --code 6488 --support 430 --quiet
+script: .venv/Scripts/python.exe scripts/regime_tracker.py --code 6488 --support 430 --quiet --json
 output_to: journal
 alert_prefix: "📐 環球晶區間觀察"
 ---

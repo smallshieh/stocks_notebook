@@ -3,7 +3,7 @@ name: 京元電時間停損倒計時
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/deadline_counter.py --code 2449 --name 京元電 --deadline 2026-05-12 --alert-days 5
+script: .venv/Scripts/python.exe scripts/deadline_counter.py --code 2449 --name 京元電 --deadline 2026-05-12 --alert-days 5 --json
 output_to: journal
 alert_prefix: "⏰ 京元電時間停損"
 ---
@@ -25,8 +25,8 @@ alert_prefix: "⏰ 京元電時間停損"
 > Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
 > `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
 
-當輸出包含「⚠️」或「警戒」時：
+當此 hook 輸出 `status: alert` 且 target `action: p1_upgrade` 時：
 1. 在盤後日誌 `## 待辦事項` 加入 `- [ ] 【2449 京元電】時間停損倒計時警示：{日期}，現價 vs 300 元，評估是否繼續持有`
 2. 若剩餘 ≤ 3 交易日且現價 < 300：升入戰術指南 P1，動作填「時間停損評估，05/12 決定」
 
-**預計存續**：2026-05-12 後可停用（加底線前綴 `_deadline-2449.md`）。
+**預計存續**：2026-05-12 後由 `deadline_passed` lifecycle 停用，或手動在 `hooks_state.json` 設為 disabled。

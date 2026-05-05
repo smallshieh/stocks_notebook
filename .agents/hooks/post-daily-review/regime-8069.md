@@ -3,7 +3,7 @@ name: 元太均值錨定觀察
 trigger:
   type: every_n_trading_days
   n: 10
-script: .venv/Scripts/python.exe scripts/regime_tracker.py --code 8069 --support 140 --quiet
+script: .venv/Scripts/python.exe scripts/regime_tracker.py --code 8069 --support 140 --quiet --json
 output_to: journal
 alert_prefix: "📐 元太均值錨定觀察"
 ---

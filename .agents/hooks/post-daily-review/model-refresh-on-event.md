@@ -3,7 +3,7 @@ name: 事件驅動模型刷新
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/model_refresh.py --from-events
+script: .venv/Scripts/python.exe scripts/model_refresh.py --from-events --json
 output_to: journal
 alert_prefix: "🔄 模型刷新"
 ---

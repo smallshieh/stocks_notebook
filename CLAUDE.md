@@ -19,10 +19,11 @@
 - Notion 同步：`.venv/Scripts/python.exe scripts/sync_to_notion.py <檔案路徑>`（憑證 `scripts/notion_creds.py`，已 gitignore）
 
 ## Hook 系統
-- `/daily-review` 步驟 13 會自動掃描 `.agents/hooks/post-daily-review/` 下的 hook 並按條件觸發
+- `/daily-review` 步驟 7.5 執行 `scripts/hook_runner.py`，讀取 `.agents/hooks/post-daily-review/hooks.yaml`
+- Hook 結果寫入 `journals/logs/{REVIEW_DATE}_hooks.json`，步驟 13 再依 JSON 的 `severity` / `action` 落地
 - Hook 檔案格式、觸發邏輯、新增/暫停/刪除方式 → 見 [.agents/hooks/README.md](.agents/hooks/README.md)
-- 新增 hook 只需在該目錄丟 `.md` 檔，**不需要改 daily-review.md**
-- 暫停 hook：檔名加底線前綴（如 `_regime-6488.md`）
+- 新增 hook 需更新 `hooks.yaml`，並確保腳本支援 `--json`
+- 暫停 hook：修改 `hooks_state.json` 中該 hook 的 `status: disabled`，不要再用檔名前加底線
 
 ## 工作流程
 - 修改 `trades/` 或 `journals/` 重要檔案後，主動提示同步 Notion

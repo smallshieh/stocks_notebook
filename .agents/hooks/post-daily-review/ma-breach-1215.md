@@ -3,7 +3,7 @@ name: 卜蜂月線跌破計數
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/ma_breach_counter.py --code 1215 --ma 20 --alert-days 3 --name 卜蜂
+script: .venv/Scripts/python.exe scripts/ma_breach_counter.py --code 1215 --ma 20 --alert-days 3 --name 卜蜂 --json
 output_to: journal
 alert_prefix: "📉 卜蜂月線觀察"
 ---
@@ -34,14 +34,14 @@ alert_prefix: "📉 卜蜂月線觀察"
 
 > ⚠️ **配息防禦股特別規則**：底倉以殖利率錨定，月線跌破≠減碼。波段倉另行用 L2 條件判斷。
 
-當輸出包含「已達 3 日門檻」時，daily-review agent 必須：
+當 `journals/logs/{REVIEW_DATE}_hooks.json` 中此 hook 為 `status: alert` 且 target `action: p1_observe` 時，daily-review agent 必須：
 1. **先確認現價殖利率**（股利估 ~7.0 元 ÷ 現價）：
    - 若殖利率 **≥ 4.5%**（現價 ≤ 155 元）：底倉不動；在戰術指南 `## P2` 的卜蜂欄位加注「⚠️ 月線下方已達 3 日，檢查 Wave — 若 Wave ≤ -3 → 觸發波段倉 L2」，**不自動移入 P1**
    - 若殖利率 **< 4.5%**（現價 > 155 元）：才評估波段倉 L2 條件
 2. 在日誌 `## Hooks` 區塊標記「→ 已更新 P2 卜蜂」
 
-當輸出包含「月線之上」（計數歸零）時：
+當此 hook 產生 `lifecycle_event: auto_disable` 或 hooks_state 顯示月線收復時：
 1. 移除 P2 的月線警示加注
-2. 在 hook 檔名加底線前綴暫停此 hook（`_ma-breach-1215.md`）
+2. 確認 `hooks_state.json` 中此 hook 已由 runner 自動轉為 disabled
 
-**預計存續**：短期 hook，待卜蜂月線情況明朗後暫停。
+**預計存續**：短期 hook，待卜蜂月線情況明朗後由 `hooks_state.json` lifecycle 自動停用；再次跌破時由 runner 自動 re-enable。

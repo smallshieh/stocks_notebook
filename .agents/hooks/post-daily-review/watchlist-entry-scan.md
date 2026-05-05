@@ -3,7 +3,7 @@ name: Watchlist N計畫進場掃描
 trigger:
   type: every_n_trading_days
   n: 1
-script: .venv/Scripts/python.exe scripts/watchlist_scan.py
+script: .venv/Scripts/python.exe scripts/watchlist_scan.py --json --from-log
 output_to: journal
 alert_prefix: "📋 候補股 N計畫"
 ---
@@ -16,14 +16,14 @@ alert_prefix: "📋 候補股 N計畫"
 2. **N 計畫進場條件**（`scripts/watchlist_entry_plans.json`）：
    - `zone` 型：現價落在 `[price_min, price_max]` 且 Wave 摘要 ≥ `wave_min`
    - `above_consec` 型：連續 N 日收盤站穩門檻且 Wave 摘要 ≥ `wave_min`
-   - 以上兩者都必須再通過 `signal_policy.py` 的進場政策確認；政策品質為低或方向不符時不觸發 `⚠️`
+   - 以上兩者都必須再通過 `signal_policy.py` 的進場政策確認；政策品質為低或方向不符時不輸出可落地 action
 
-### 警示關鍵字
+### 結構化落地
 
-stdout 輸出包含 `⚠️` 時，daily-review 步驟 13 強制執行落地：
+daily-review 步驟 13 只讀 `journals/logs/{REVIEW_DATE}_hooks.json`：
 
-- **N計畫觸發**：`⚠️ N計畫觸發 [{計畫}-{label}]` → 更新戰術指南 P1（加入進場動作待辦）
-- **N計畫過期**：`⚠️ {計畫} 過期警示` → 更新戰術指南（標記計畫需重新評估）
+- `status: alert` / `action: p1_upgrade` → 更新戰術指南 P1（加入進場動作待辦）
+- `status: warning` / `action: p2_observe` 或 `todo_add` → 寫入 P2 觀察或待辦事項
 
 ### Agent 執行指令
 
@@ -31,7 +31,7 @@ stdout 輸出包含 `⚠️` 時，daily-review 步驟 13 強制執行落地：
 > Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
 > `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
 
-當 stdout 包含 `⚠️ N計畫觸發` 時：
+當 target `action` 為 `p1_upgrade` 或 `todo_add` 時：
 
 1. 找到對應 `[code]` 標的
 2. 在 `journals/戰術指南.md` 的 P1 區塊加入：

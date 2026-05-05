@@ -3,7 +3,7 @@ name: 元太硬死線倒計時
 trigger:
   type: every_n_trading_days
   n: 5
-script: .venv/Scripts/python.exe scripts/deadline_counter.py --code 8069 --name 元太 --deadline 2026-06-30 --alert-days 20
+script: .venv/Scripts/python.exe scripts/deadline_counter.py --code 8069 --name 元太 --deadline 2026-06-30 --alert-days 20 --json
 output_to: journal
 alert_prefix: "⏳ 元太硬死線"
 ---
@@ -32,9 +32,9 @@ alert_prefix: "⏳ 元太硬死線"
 > Agent 應讀取 `journals/logs/{REVIEW_DATE}_hooks.json` 中的結構化結果，而非解析 stdout 文字。
 > `action` 欄位：`p1_upgrade` | `p1_observe` | `p2_observe` | `todo_add` | `no_action`
 
-當輸出包含「已達門檻」或「⚠️」時，daily-review agent 必須：
+當此 hook 輸出 `status: alert` 且 target `action: p1_upgrade` 時，daily-review agent 必須：
 1. 將 8069 元太移入戰術指南 `## P1`，備注「硬死線 ≤ 20 交易日，不論股價必須在 06-30 前完成清倉」
 2. 在 P1 動作欄加入具體出場窗口（例如：「若不到 165 元，於 06-25 前市價清出」）
 3. 在日誌 `## Hooks` 標記「→ 已更新 P1 元太硬死線」
 
-**預計存續**：至 2026-06-30 出場完成後，加底線前綴暫停（`_deadline-8069.md`）。
+**預計存續**：至 2026-06-30 出場完成後，由 `deadline_passed` lifecycle 停用，或手動在 `hooks_state.json` 設為 disabled。

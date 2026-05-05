@@ -3,7 +3,7 @@ name: 前瞻觀點到期提醒
 trigger:
   type: every_n_trading_days
   n: 5
-script: .venv/Scripts/python.exe scripts/thesis_expiry.py --quiet
+script: .venv/Scripts/python.exe scripts/thesis_expiry.py --quiet --json
 output_to: journal
 alert_prefix: "⏰ 觀點到期追蹤"
 ---
