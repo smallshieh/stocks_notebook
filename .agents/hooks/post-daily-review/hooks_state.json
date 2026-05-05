@@ -93,7 +93,7 @@
     "ma-breach-2317": {
       "status": "disabled",
       "last_run": "2026-05-05",
-      "run_count": 4,
+      "run_count": 7,
       "consecutive_failures": 0,
       "last_result": {
         "status": "ok",
@@ -179,6 +179,48 @@
       "consecutive_failures": 0,
       "last_run": "2026-05-05",
       "run_count": 1,
+      "last_result": {
+        "status": "ok",
+        "severity": "low",
+        "summary": ""
+      }
+    },
+    "ma-breach-2301": {
+      "last_run": "2026-05-05",
+      "run_count": 3,
+      "consecutive_failures": 0,
+      "last_result": {
+        "status": "ok",
+        "severity": "low",
+        "summary": ""
+      },
+      "status": "disabled",
+      "disabled_reason": "auto_disable from script output"
+    },
+    "deadline-2337": {
+      "last_run": "2026-05-05",
+      "run_count": 1,
+      "consecutive_failures": 0,
+      "last_result": {
+        "status": "ok",
+        "severity": "low",
+        "summary": ""
+      }
+    },
+    "wave-decay-2337": {
+      "last_run": "2026-05-05",
+      "run_count": 1,
+      "consecutive_failures": 0,
+      "last_result": {
+        "status": "ok",
+        "severity": "low",
+        "summary": ""
+      }
+    },
+    "price-alert-2317": {
+      "last_run": "2026-05-05",
+      "run_count": 2,
+      "consecutive_failures": 0,
       "last_result": {
         "status": "ok",
         "severity": "low",

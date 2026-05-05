@@ -374,7 +374,7 @@ hooks:
 
   price-alert-2317:
     name: "鴻海移動停利監控"
-    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2317 --name 鴻海 --targets 215.0 --hard-stop 190.0 --json"
+    script: ".venv/Scripts/python.exe scripts/hook_price_alert.py --code 2317 --name 鴻海 --hard-stop 215.0 --json"
     targets: ["2317"]
     strategy_class: "growth_trend"
     severity_default: "high"

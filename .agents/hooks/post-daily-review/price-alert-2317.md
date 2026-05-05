@@ -3,7 +3,7 @@ name: 鴻海移動停利監控
 trigger:
   type: schedule
   n: 1
-script: .venv/Scripts/python.exe scripts/hook_price_alert.py --code 2317 --name 鴻海 --targets 215.0 --hard-stop 190.0 --json
+script: .venv/Scripts/python.exe scripts/hook_price_alert.py --code 2317 --name 鴻海 --hard-stop 215.0 --json
 output_to: journal
 alert_prefix: "🎯 鴻海移動停利"
 ---

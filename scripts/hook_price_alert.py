@@ -100,7 +100,7 @@ def main():
             closest = t
 
     hard_stop_gap = (price / args.hard_stop - 1) * 100
-    near_hard_stop = 0 <= hard_stop_gap < 5
+    near_hard_stop = hard_stop_gap < 5  # 包含已跌破（<0）與接近（0~5%）兩種狀態
 
     detail = {
         "current_price": round(price, 2),
@@ -118,7 +118,10 @@ def main():
         status = "alert"
         action = "p1_upgrade"
     elif near_hard_stop:
-        summary = f"距硬止損 {args.hard_stop} 僅 {hard_stop_gap:.1f}%"
+        if hard_stop_gap < 0:
+            summary = f"⚡ 硬止損 {args.hard_stop} 已觸破！現價 {price:.2f}（跌 {abs(hard_stop_gap):.1f}%）"
+        else:
+            summary = f"距硬止損 {args.hard_stop} 僅 {hard_stop_gap:.1f}%，警戒"
         severity = "high"
         status = "alert"
         action = "p1_upgrade"
