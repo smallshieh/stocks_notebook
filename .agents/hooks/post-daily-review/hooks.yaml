@@ -178,6 +178,22 @@ hooks:
       fallback_frequency_days: 1
     doc: "wave-decay-2337.md"
 
+  wave-decay-2449:
+    name: "京元電 Wave 停利/退場監控"
+    script: ".venv/Scripts/python.exe scripts/wave_decay_alert.py --code 2449 --name 京元電 --alert-wave 1 --context 停利2檢查：Wave<=+1且未創新高賣4股；Wave<=0或跌破月線全清 --json"
+    targets: ["2449"]
+    strategy_class: "growth_trend"
+    severity_default: "medium"
+    trigger:
+      type: schedule
+      every_n_trading_days: 1
+    lifecycle:
+      permanent_disable_on: "position_liquidated"
+    retry:
+      max_consecutive_failures: 2
+      fallback_frequency_days: 1
+    doc: "wave-decay-2449.md"
+
   # ── 區間觀察（雙週頻率）───────────────────────────────────────
 
   regime-6488:
