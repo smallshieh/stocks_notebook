@@ -10,6 +10,7 @@ import time
 import warnings
 from curl_cffi import requests as creq
 import yfinance as yf
+from date_utils import slice_history_to_date
 from signal_policy import resolve_review_date
 
 _CURL_SESSION = creq.Session(verify=False, impersonate='chrome')
@@ -107,10 +108,14 @@ def get_tw_ticker(code, retries=3, delay=5):
     return None, None
 
 
-def analyze(code, cost):
+def analyze(code, cost, review_date=None):
     ticker, hist = get_tw_ticker(code)
     if ticker is None:
         return None
+    if review_date:
+        hist = slice_history_to_date(hist, review_date)
+        if hist is None or hist.empty:
+            return None
     current_price = hist['Close'].iloc[-1]
     ma20 = hist['Close'].rolling(window=min(20, len(hist))).mean().iloc[-1]
     info = ticker.info
@@ -172,11 +177,11 @@ def scan():
             if _shares_check == 0:
                 continue
 
-        result = analyze(code, cost)
+        result = analyze(code, cost, review_date=today_str)
         if result is None:
             rows_alert.append(f"| {code} | {name} | ❌ 無法取得資料 | — | — | — |")
             continue
-        if result.get('as_of') != today_str:
+        if result.get('as_of') < today_str:
             date_mismatch = True
             rows_alert.append(
                 f"| {code} | {name} | ⚠️ 資料日期 {result.get('as_of')} != REVIEW_DATE {today_str} | — | — | — |"

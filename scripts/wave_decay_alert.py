@@ -40,6 +40,7 @@ from signal_policy import (
     resolve_review_date,
     save_signal_state,
 )
+from date_utils import slice_history_to_date
 
 STOCKS_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'stocks.csv')
 
@@ -168,8 +169,21 @@ def run():
             sys.exit(0)
         print(f"{label} Wave 觀察：⚠️ 無法取得市場資料（ticker={ticker}）")
         sys.exit(0)
+    df = slice_history_to_date(df, review_date)
+    if df is None or len(df) < 20:
+        if args.json:
+            from hook_output import HookResult, output
+            result = HookResult(
+                hook=f"wave-decay-{args.code}", timestamp=review_date,
+                status="error", severity="medium",
+                error_message=f"切片後資料不足（ticker={ticker}, review_date={review_date}）",
+            )
+            output(result)
+            sys.exit(0)
+        print(f"{label} Wave 觀察：⚠️ 切片後資料不足（ticker={ticker}, review_date={review_date}）")
+        sys.exit(0)
     data_date = df.index[-1].date().isoformat()
-    if data_date != review_date:
+    if data_date < review_date:
         if args.json:
             from hook_output import HookResult, output
             result = HookResult(

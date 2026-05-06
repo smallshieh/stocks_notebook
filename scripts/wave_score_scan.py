@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
+from date_utils import slice_history_to_date
 from signal_policy import (
     compute_volume_metrics,
     evaluate_signal,
@@ -175,8 +176,13 @@ def calc_physics_score(df):
     return raw - 2, mom
 
 
-def analyze(code, ticker, period='1y'):
+def analyze(code, ticker, period='1y', review_date=None):
+    if review_date is None:
+        review_date = resolve_review_date()
     df = fetch_ohlcv(ticker, period)
+    if df is None or df.empty:
+        return None
+    df = slice_history_to_date(df, review_date)
     if df is None or df.empty:
         return None
     prices  = df['Close']
@@ -555,13 +561,13 @@ def main():
             r = restore_from_cache(code, cache)
             print('(快取)', end='  ', flush=True)
         else:
-            r = analyze(code, ticker, args.period)
+            r = analyze(code, ticker, args.period, review_date=today_str)
         if r is None:
             print('❌ 資料取得失敗')
             failed.append(f'{code} {name}')
             continue
         data_date = str(r.get('as_of', '')).split()[0]
-        if data_date and data_date != today_str:
+        if data_date and data_date < today_str:
             print(f'⚠️ 資料日期 {data_date} != REVIEW_DATE {today_str}，跳過避免污染')
             failed.append(f'{code} {name}(資料日期 {data_date})')
             continue

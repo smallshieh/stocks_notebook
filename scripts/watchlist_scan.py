@@ -96,12 +96,19 @@ QUANT_TRIGGERS = [
 
 
 def get_market_data(code: str, retries=3, delay=5):
-    """取得現價、20MA、60MA、完整 hist DataFrame；TW/TWO 自動切換，含重試。"""
+    """取得現價、20MA、60MA、完整 hist DataFrame；TW/TWO 自動切換，含重試。
+    若 REVIEW_DATE env 已設定，自動將 history 切片到該日期。"""
+    from date_utils import slice_history_to_date, resolve_review_date
+    review = resolve_review_date()
     for suffix in ['.TW', '.TWO']:
         for attempt in range(retries):
             try:
                 hist = yf.Ticker(f"{code}{suffix}", session=_CURL_SESSION).history(period="6mo", auto_adjust=False)
                 if hist is not None and not hist.empty:
+                    if review:
+                        hist = slice_history_to_date(hist, review)
+                    if hist is None or hist.empty:
+                        continue
                     hist.columns = [c.title() for c in hist.columns]
                     close = hist['Close'].dropna()
                     price = float(close.iloc[-1])
@@ -387,9 +394,11 @@ def scan():
         if price is None:
             print(f"  無法取得市場資料，跳過。\n")
             continue
+
         data_date = hist.index[-1].date().isoformat() if hist is not None and not hist.empty else ""
-        if data_date and data_date != TODAY:
-            print(f"  市場資料日期 {data_date} != REVIEW_DATE {TODAY}，跳過避免污染。\n")
+        # 寬容檢查：資料日期 ≥ 執行日期即可（切片已在 get_market_data 處理）
+        if data_date and data_date < TODAY:
+            print(f"  市場資料日期 {data_date} < REVIEW_DATE {TODAY}，資料不足，跳過。\n")
             continue
 
         ma20_pct = (price / ma20 - 1) * 100

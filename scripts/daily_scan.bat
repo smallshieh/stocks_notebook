@@ -4,8 +4,11 @@ set PROJECT=S:\股票筆記
 set PYTHON=S:\股票筆記\.venv\Scripts\python.exe
 set LOGDIR=%PROJECT%\journals\logs
 
-if not "%~1"=="" set REVIEW_DATE=%~1
-if "%REVIEW_DATE%"=="" for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set REVIEW_DATE=%%i
+if not "%~1"=="" (
+    set REVIEW_DATE=%~1
+) else (
+    for /f %%i in ('"%PYTHON%" -c "from curl_cffi import requests as creq; import yfinance as yf; s=creq.Session(verify=False, impersonate='chrome'); d=yf.Ticker('2330.TW', session=s).history(period='5d'); print(d.index[-1].strftime('%%Y-%%m-%%d') if d is not None and not d.empty else __import__('datetime').date.today().isoformat())" 2^>nul') do set REVIEW_DATE=%%i
+)
 set TODAY=%REVIEW_DATE%
 
 set LOGFILE=%LOGDIR%\%TODAY%_scan.log

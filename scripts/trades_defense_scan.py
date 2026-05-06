@@ -131,7 +131,10 @@ def parse_trades_md(filepath: str) -> dict | None:
 
 
 def get_market_data(code: str, retries=3, delay=5):
-    """取得現價、20MA 及完整 hist；TW/TWO 自動切換。"""
+    """取得現價、20MA 及完整 hist；TW/TWO 自動切換。
+    若 REVIEW_DATE env 已設定，自動將 history 切片到該日期。"""
+    from date_utils import slice_history_to_date, resolve_review_date
+    review = resolve_review_date()
     # 先從 stocks.csv 取 ticker
     stocks_csv = os.path.join(SCRIPTS_DIR, '..', 'stocks.csv')
     ticker_override = None
@@ -152,6 +155,10 @@ def get_market_data(code: str, retries=3, delay=5):
             try:
                 hist = yf.Ticker(ticker, session=_CURL_SESSION).history(period="6mo", auto_adjust=False)
                 if hist is not None and not hist.empty:
+                    if review:
+                        hist = slice_history_to_date(hist, review)
+                    if hist is None or hist.empty:
+                        continue
                     hist.columns = [c.title() for c in hist.columns]
                     close = hist['Close'].dropna()
                     price = float(close.iloc[-1])
@@ -281,8 +288,8 @@ def scan():
             print(f"  [{code}] {name}：無法取得市場資料，跳過")
             continue
         data_date = hist.index[-1].date().isoformat() if hist is not None and not hist.empty else ""
-        if data_date and data_date != TODAY:
-            print(f"  [{code}] {name}：市場資料日期 {data_date} != REVIEW_DATE {TODAY}，跳過避免污染")
+        if data_date and data_date < TODAY:
+            print(f"  [{code}] {name}：市場資料日期 {data_date} < REVIEW_DATE {TODAY}，資料不足，跳過")
             continue
 
         pnl_pct = (price / cost - 1) * 100

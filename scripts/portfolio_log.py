@@ -21,6 +21,7 @@ import logging
 import datetime
 import yfinance as yf
 from curl_cffi import requests as creq
+from date_utils import slice_history_to_date
 from signal_policy import resolve_review_date
 
 warnings.filterwarnings('ignore')
@@ -53,18 +54,26 @@ def _fetch_hist(code, period="5d", retries=3, delay=5):
 
 
 # ── 假日偵測 ──────────────────────────────────────────────────────────────────
-def latest_market_date():
+def latest_market_date(review_date=None):
     """回傳 0050 最新市場資料日期；無法確認時回傳 None。"""
     hist = _fetch_hist("0050", period="5d")
     if hist is None or hist.empty:
         return None
+    if review_date:
+        hist = slice_history_to_date(hist, review_date)
+        if hist is None or hist.empty:
+            return None
     return hist.index[-1].date()
 
 
 # ── 市場資料 ──────────────────────────────────────────────────────────────────
-def get_price(code: str):
+def get_price(code: str, review_date=None):
     hist = _fetch_hist(code, period="5d")
     if hist is not None and not hist.empty:
+        if review_date:
+            hist = slice_history_to_date(hist, review_date)
+            if hist is None or hist.empty:
+                return None
         return float(hist['Close'].dropna().iloc[-1])
     return None
 
@@ -148,8 +157,8 @@ def run():
     files = [f for f in sorted(os.listdir(TRADES_DIR))
              if f.endswith('.md') and f != 'template.md']
 
-    market_date = latest_market_date()
-    if market_date is not None and market_date != TODAY_DATE:
+    market_date = latest_market_date(review_date=TODAY)
+    if market_date is not None and market_date < TODAY_DATE:
         print(
             f"  市場資料日期為 {market_date.isoformat()}，與 REVIEW_DATE {TODAY} 不一致，"
             "略過 portfolio_history.csv 寫入以避免日期污染。"
@@ -165,7 +174,7 @@ def run():
             errors.append(fname)
             continue
 
-        price = get_price(parsed['code'])
+        price = get_price(parsed['code'], review_date=TODAY)
         if price is None:
             errors.append(f"{fname} (無法取得現價)")
             continue
